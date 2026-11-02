@@ -11,7 +11,7 @@ if not exist "%~dp0app\package.json" (
   echo  Lagta hai tumne SIRF ye .bat file download ki hai.
   echo  Poora project chahiye, ye karo:
   echo.
-  echo   1. https://github.com/ShoaibAzeez/zubii-batch-preset-tool kholo
+  echo   1. https://github.com/shoaibulhassan544-ops/zubii-batch-preset-tool kholo
   echo   2. Hare "Code" button par click karo, phir "Download ZIP" dabao
   echo   3. ZIP file ko unzip / extract karo
   echo   4. Jo folder nikle, USKE ANDAR ye build-windows.bat hogi -

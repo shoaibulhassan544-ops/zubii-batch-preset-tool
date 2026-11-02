@@ -4,6 +4,10 @@
 # this script rewrites that line before calling Photoshop. Photoshop must
 # be installed on this Windows PC (Photoshop CC 2019 / 20.x se 2025 / 26.x
 # tak — har version; COM ProgID Photoshop.Application version-independent hai).
+# AHAM: -Jsx me jo file milti hai wo TEMP COPY hoti hai (workDir me) —
+# install folder (Program Files) read-only hai, is liye asal JSX ko
+# rewrite karne par UnauthorizedAccessException aata tha. Is copy ko
+# rewrite karna hamesha allowed hai.
 param(
   [Parameter(Mandatory = $true)][string]$Jsx,
   [Parameter(Mandatory = $true)][string]$Args

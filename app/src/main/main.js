@@ -59,7 +59,7 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 ipcMain.handle('app:get-info', () => ({ version: config.version, settings, free: true }));
 ipcMain.handle('app:save-settings', (_e, s) => { settings = { ...settings, ...s }; saveSettings(settings); return settings; });
 
-ipcMain.handle('app:check-photoshop', () => ps.checkPhotoshop());
+ipcMain.handle('app:check-photoshop', (_e, force) => ps.checkPhotoshop(force));
 
 ipcMain.handle('photos:pick', async () => {
   const r = await dialog.showOpenDialog(win, {
@@ -108,18 +108,23 @@ ipcMain.handle('presets:install-to-camera-raw', async (_e, presetPath) => {
 // COMPATIBILITY: is preset ko is Photoshop version par poora lagega ya
 // nayi ACR feature ki wajah se warning hai? Warning hoti hai, block nahi.
 // photoshopVersion: renderer se mila hua version string ("24.7") — na ho
-// to yahan dobara checkPhotoshop() se pata kar lo.
+// to CACHED version istemal karo. Yahan dobara COM check KABHI NAHI
+// chalana — warna har preset select par Photoshop khulta aur band hota.
+// Cache khaali ho to version null rehta hai (warning nahi, block bhi nahi).
 ipcMain.handle('presets:check-compatibility', async (_e, { presetPath, photoshopVersion }) => {
   try {
     const xmpText = fs.readFileSync(presetPath, 'utf8');
     let psInfo = null;
     if (photoshopVersion) psInfo = ps.parsePhotoshopVersion(photoshopVersion);
-    else psInfo = await ps.checkPhotoshop();
+    else psInfo = ps.getCachedPhotoshop();
     return { ok: true, ...ps.checkPresetCompatibility(xmpText, psInfo) };
   } catch (err) {
     return { ok: false, error: err.message };
   }
 });
+
+// SUPPORT: user ke WhatsApp par le jao (business number).
+ipcMain.handle('support:open-whatsapp', () => { shell.openExternal('https://wa.me/923060756225'); return true; });
 
 // AUTO PICK: analyse each photo, rank all imported presets, return the
 // best one per photo + why. Presets' XMP text is read here (main process).

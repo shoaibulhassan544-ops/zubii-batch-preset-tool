@@ -10,8 +10,8 @@
 // version lock nahi hai.
 module.exports = {
   appName: 'Zubii Batch Preset Tool',
-  version: '1.2.0',
-  githubOwner: 'ShoaibAzeez',
+  version: '1.2.1',
+  githubOwner: 'shoaibulhassan544-ops',
   githubRepo: 'zubii-batch-preset-tool',
   photoshopProgId: 'Photoshop.Application',
   // Photoshop major version -> saal / Camera Raw (ACR) mapping.

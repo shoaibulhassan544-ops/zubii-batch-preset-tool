@@ -4,8 +4,8 @@
 # Windows runner par installer banata hai aur Release me attach karta hai.
 #
 # Kaise chalega:
-#   1. Repo banao: ShoaibAzeez/zubii-batch-preset-tool, source push karo.
-#   2. Tag lagao: git tag v1.2.0 && git push origin v1.2.0
+#   1. Repo banao: shoaibulhassan544-ops/zubii-batch-preset-tool, source push karo.
+#   2. Tag lagao: git tag v1.2.1 && git push origin v1.2.1
 #      (ya Actions tab -> "Build Windows EXE" -> Run workflow dabao.)
 #   3. Actions tab me build dekho; tag wale run par Release ban jayegi
 #      aur exe + latest.yml us me attach ho jayenge.
@@ -13,6 +13,11 @@
 # NOTE — npm cache JAAN BOOJH KAR NAHI lagaya: pehle SA tool me lockfile
 # ki wajah se cache wala step fail hota tha, is liye har run par
 # `npm install` seedha chalta hai (thoda slow, lekin reliable).
+#
+# NOTE — build step me `--publish=never` JAAN BOOJH KAR hai: CI me
+# electron-builder GH_TOKEN ke baghair auto-publish karne ki koshish
+# karta hai aur gir jata hai (exe banne ke baad bhi). Release step
+# (softprops/action-gh-release) apna token khud istemal karta hai.
 #
 # NOTE — agar is GitHub account/repo par Actions disabled hui
 # ("Actions has been disabled for this user" — SA tool ke waqt aisa mila
@@ -69,6 +74,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ github.ref_name }} — exe file for Windows
+          body: |
+            Zubii Batch Preset Tool ${{ github.ref_name }} — exe file for Windows.
+            Windows 10/11 64-bit, Adobe Photoshop CC 2019 (20.x) se 2025 (26.x) lazmi.
+            Download karo, install karo, Photoshop khol kar test karo.
           files: |
             app/dist/*.exe
             app/dist/latest.yml

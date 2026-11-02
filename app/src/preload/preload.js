@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('zubii', {
   getInfo: () => ipcRenderer.invoke('app:get-info'),
   saveSettings: (s) => ipcRenderer.invoke('app:save-settings', s),
-  checkPhotoshop: () => ipcRenderer.invoke('app:check-photoshop'),
+  checkPhotoshop: (force) => ipcRenderer.invoke('app:check-photoshop', force),
   pickPhotos: () => ipcRenderer.invoke('photos:pick'),
   pickPhotoFolder: () => ipcRenderer.invoke('photos:pick-folder'),
   listPresets: () => ipcRenderer.invoke('presets:list'),
@@ -19,5 +19,6 @@ contextBridge.exposeInMainWorld('zubii', {
   cancelBatch: () => ipcRenderer.invoke('batch:cancel'),
   checkUpdates: () => ipcRenderer.invoke('updates:check'),
   openReleases: () => ipcRenderer.invoke('updates:open-releases'),
+  openSupport: () => ipcRenderer.invoke('support:open-whatsapp'),
   onProgress: (cb) => ipcRenderer.on('batch:progress', (_e, s) => cb(s)),
 });

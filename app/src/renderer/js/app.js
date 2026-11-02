@@ -242,6 +242,33 @@ function bindProgress() {
   });
 }
 
+// Photoshop status — aik dafa check karo, phir result yaad rakho.
+// force=true sirf "Dobara check karo" button se aata hai. Check ke doran
+// Photoshop khulta ya band nahi hota (main process me kabhi Quit nahi).
+async function refreshPhotoshopStatus(force) {
+  const el = $('ps-status');
+  const btn = $('btn-ps-recheck');
+  el.textContent = 'Photoshop check ho raha hai…';
+  el.className = 'ps-status checking';
+  btn.disabled = true;
+  btn.classList.remove('attention');
+  const ps = await window.zubii.checkPhotoshop(force);
+  photoshopInfo = ps;
+  btn.disabled = false;
+  if (ps.ok) {
+    // Har version: "Photoshop connected — 2023 (24.7)" jaisa label.
+    el.textContent = '✓ Photoshop connected' + (ps.label ? ' — ' + ps.label : '');
+    el.className = 'ps-status ok';
+    log((force ? 'Photoshop dobara check: mil gaya — ' : 'Photoshop mil gaya: ') + ps.detail + (ps.label ? ' (' + ps.label + ')' : ''));
+  } else {
+    el.textContent = '✕ Photoshop nahi mila';
+    el.className = 'ps-status bad';
+    btn.classList.add('attention');
+    log('Photoshop check: ' + (ps.detail || ps.reason) + ' — Photoshop CC 2019 (20.x) ya us se naya install karo, phir "Dobara check karo" dabao.');
+  }
+  return ps;
+}
+
 async function init() {
   const info = await window.zubii.getInfo();
   settings = info.settings || settings;
@@ -253,16 +280,7 @@ async function init() {
   $('resize-width').value = settings.resizeWidth || 2048;
   $('naming').value = settings.namingPattern || '{preset}_{filename}_{seq}';
 
-  const ps = await window.zubii.checkPhotoshop();
-  photoshopInfo = ps;
-  const el = $('ps-status');
-  if (ps.ok) {
-    // Har version: "Photoshop connected — 2023 (24.7)" jaisa label.
-    el.textContent = '✓ Photoshop connected' + (ps.label ? ' — ' + ps.label : '');
-    el.className = 'ps-status ok';
-    log('Photoshop mil gaya: ' + ps.detail + (ps.label ? ' (' + ps.label + ')' : ''));
-  }
-  else { el.textContent = '✕ Photoshop nahi mila'; el.className = 'ps-status bad'; log('Photoshop check: ' + (ps.detail || ps.reason) + ' — Photoshop CC 2019 (20.x) ya us se naya install karo aur dobara kholo.'); }
+  await refreshPhotoshopStatus(false);
 
   await refreshPresets();
   if (settings.lastPreset) {
@@ -302,6 +320,8 @@ async function init() {
   $('resize-width').onchange = (e) => { settings.resizeWidth = +e.target.value || 2048; window.zubii.saveSettings(settings); };
   $('naming').onchange = (e) => { settings.namingPattern = e.target.value.trim() || '{preset}_{filename}_{seq}'; window.zubii.saveSettings(settings); };
   $('btn-updates').onclick = () => window.zubii.checkUpdates();
+  $('btn-ps-recheck').onclick = () => refreshPhotoshopStatus(true);
+  $('btn-support').onclick = () => window.zubii.openSupport();
 }
 
 init();

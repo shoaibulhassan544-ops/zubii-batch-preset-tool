@@ -5,6 +5,20 @@
 // Runs the ExtendScript in scripts/apply-preset.jsx through PowerShell:
 //   New-Object -ComObject Photoshop.Application  ->  DoJavaScriptFile(jsx)
 //
+// AHAM: check ke doran Photoshop ko KABHI band nahi karna — na COM se
+// khula ho, na pehle se chal raha ho. Sirf Version parho aur COM object
+// release kar do. Pehle check ke baad Photoshop band kar diya jata tha:
+// har check par Photoshop khulta aur foran band ho jata tha (preset
+// select karte hi). Ab aisa nahi hota.
+// Version pehli kamyab check ke baad cache hoti hai — dobara check sirf
+// "Dobara check karo" button se hota hai.
+//
+// PHOTOSHOP NA MILNE PAR FALLBACK: COM fail bhi sakta hai jabke Photoshop
+// installed ho (maslan COM register nahi hua). Is liye COM fail ho to
+// registry (HKLM\SOFTWARE\Adobe\Photoshop ki ApplicationPath) aur aam
+// install paths check kiye jate hain — exe mil jaye to Photoshop "mila"
+// mana jata hai, version exe ke folder name se nikala jata hai.
+//
 // HOW THE PRESET IS APPLIED (read this before changing it):
 // Adobe provides NO official scripting call like "apply this .xmp preset".
 // The script therefore uses the documented Camera Raw behaviour:
@@ -230,24 +244,129 @@ function buildBatchArgs({ presetPath, files, outputDir, quality, resize, resizeW
 }
 
 // ---------------------------------------------------------------------------
-// Photoshop availability check (COM). Resolves true/false, never throws.
+// Photoshop dhoondna — COM fail ho to registry / install paths fallback.
+// Pure helpers — self-test me test hote hain, Photoshop ki zaroorat nahi.
 // ---------------------------------------------------------------------------
-function checkPhotoshop() {
+
+// Aam install locations — COM na chale to inhen check karo.
+const PHOTOSHOP_KNOWN_PATHS = [
+  { exe: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2025\\Photoshop.exe', major: 26 },
+  { exe: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2024\\Photoshop.exe', major: 25 },
+  { exe: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2023\\Photoshop.exe', major: 24 },
+  { exe: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2022\\Photoshop.exe', major: 23 },
+  { exe: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2021\\Photoshop.exe', major: 22 },
+  { exe: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2020\\Photoshop.exe', major: 21 },
+  { exe: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2019\\Photoshop.exe', major: 20 },
+  { exe: 'C:\\Program Files\\Adobe\\Adobe Photoshop CC 2019\\Photoshop.exe', major: 20 },
+];
+
+// Exe path se Photoshop major nikalo — "Adobe Photoshop 2023" -> 24,
+// "Adobe Photoshop CC 2019" -> 20. Saal na mile to null.
+function photoshopExePathToVersion(exePath) {
+  const p = String(exePath || '');
+  const m = p.match(/Adobe Photoshop (?:CC )?(\d{4})/i);
+  if (!m) return null;
+  const year = parseInt(m[1], 10);
+  if (year < 2019 || year > 2035) return null;
+  const major = year - 1999;
+  return { major, version: String(major) + '.0' };
+}
+
+// Registry output (ApplicationPath values, aik line me aik path) se
+// candidate paths nikalo. Khali lines aur ghair-Photoshop lines chhodo.
+function parsePhotoshopRegistryOutput(output) {
+  const out = [];
+  for (const line of String(output || '').split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) continue;
+    if (/photoshop/i.test(t)) out.push(t);
+  }
+  return out;
+}
+
+// Candidate (exe path ya folder) se asal exe path banao.
+function candidateToExe(candidate) {
+  const c = String(candidate || '').trim().replace(/^"+|"+$/g, '');
+  if (!c) return null;
+  if (/\.exe$/i.test(c)) return c;
+  return path.join(c, 'Photoshop.exe');
+}
+
+// Har run ke liye JSX ki TEMP copy ka path — install folder (Program
+// Files) standard user ke liye read-only hai, is liye wahan rewrite
+// karne par UnauthorizedAccessException aata tha. Copy workDir (temp)
+// me hoti hai, wahan likhna hamesha allowed hai.
+function buildRunJsxPath(workDir) { return path.join(workDir, 'apply-preset.jsx'); }
+
+// Pehli kamyab check ka result — dobara COM chalane ke bajaye yehi
+// istemal hota hai (maslan preset compatibility check me).
+let cachedCheck = null;
+function getCachedPhotoshop() { return cachedCheck; }
+
+// ---------------------------------------------------------------------------
+// Photoshop availability check. Resolves true/false, never throws.
+// COM pehle; fail ho to registry + aam install paths fallback.
+// Photoshop ko KABHI band nahi karta — na check ke doran, na baad me.
+// force=true sirf "Dobara check karo" button se aata hai.
+// ---------------------------------------------------------------------------
+function checkPhotoshop(force) {
   return new Promise((resolve) => {
+    if (cachedCheck && !force) { resolve(cachedCheck); return; }
     if (process.platform !== 'win32') {
-      resolve({ ok: false, reason: 'not-windows', version: null, major: null, detail: 'Photoshop automation needs Windows (COM).' });
+      cachedCheck = { ok: false, reason: 'not-windows', version: null, major: null, detail: 'Photoshop automation needs Windows (COM).' };
+      resolve(cachedCheck);
       return;
     }
+    // 1. COM — sirf Version parho, COM object release kar do, band mat karo.
     execFile('powershell', ['-NoProfile', '-Command',
-      "try { $ps = New-Object -ComObject Photoshop.Application; " +
-      "Write-Output ('OK ' + $ps.Version); $ps.Quit() } catch { Write-Output ('FAIL ' + $_.Exception.Message); exit 1 }"],
+      "try { $ps = New-Object -ComObject Photoshop.Application; $v = $ps.Version; " +
+      "[System.Runtime.InteropServices.Marshal]::ReleaseComObject($ps) | Out-Null; " +
+      "Write-Output ('OK ' + $v) } catch { Write-Output ('FAIL ' + $_.Exception.Message); exit 1 }"],
     { timeout: 60000 }, (err, stdout) => {
       const out = (stdout || '').trim();
       if (!err && out.startsWith('OK')) {
         // "OK 24.7" -> version string "24.7" parse karo.
         const parsed = parsePhotoshopVersion(out.slice(2).trim());
-        resolve({ ok: true, detail: out, ...parsed });
-      } else resolve({ ok: false, reason: 'photoshop-not-found', version: null, major: null, detail: out || (err && err.message) || 'Photoshop COM object could not be created. Is Photoshop installed and licensed?' });
+        cachedCheck = { ok: true, method: 'com', detail: out, ...parsed };
+        resolve(cachedCheck);
+        return;
+      }
+      const comDetail = out || (err && err.message) || 'Photoshop COM object could not be created.';
+      // 2. Fallback — registry + aam install paths. COM fail bhi sakta hai
+      //    jabke Photoshop installed ho (maslan COM register nahi hua).
+      findPhotoshopOnDisk(comDetail).then((found) => { cachedCheck = found; resolve(found); });
+    });
+  });
+}
+
+// Disk par Photoshop dhoondo: pehle registry, phir aam install paths.
+// Mil jaye to ok:true + exe path + folder name se version; na mile to ok:false.
+function findPhotoshopOnDisk(comDetail) {
+  return new Promise((resolve) => {
+    execFile('powershell', ['-NoProfile', '-Command',
+      "Get-ChildItem 'HKLM:\\SOFTWARE\\Adobe\\Photoshop' -ErrorAction SilentlyContinue | ForEach-Object { $p = $_.GetValue('ApplicationPath'); if ($p) { $p } }"],
+    { timeout: 30000 }, (regErr, regOut) => {
+      const candidates = [];
+      if (!regErr) for (const line of parsePhotoshopRegistryOutput(regOut)) candidates.push(line);
+      for (const k of PHOTOSHOP_KNOWN_PATHS) candidates.push(k.exe);
+      for (const cand of candidates) {
+        const exe = candidateToExe(cand);
+        if (!exe) continue;
+        try {
+          if (fs.existsSync(exe)) {
+            const v = photoshopExePathToVersion(exe);
+            const parsed = v ? parsePhotoshopVersion(v.version)
+              : { ok: false, version: null, major: null, minor: null, year: null, yearLabel: null, acr: null, label: null };
+            resolve({
+              ok: true, method: 'fallback', exe,
+              detail: 'Photoshop mila (exe): ' + exe + ' — COM se nahi mila (' + comDetail + ')',
+              ...parsed,
+            });
+            return;
+          }
+        } catch (_) { /* agla candidate */ }
+      }
+      resolve({ ok: false, reason: 'photoshop-not-found', version: null, major: null, detail: comDetail + ' Registry aur aam install paths me bhi Photoshop.exe nahi mila. Photoshop CC 2019 (20.x) ya us se naya install karo.' });
     });
   });
 }
@@ -278,8 +397,16 @@ function runBatch(args, onProgress) {
     fs.writeFileSync(args.progressFile, JSON.stringify({ total: args.files.length, done: 0, ok: 0, failed: 0, current: '', errors: [] }), 'utf8');
     if (fs.existsSync(args.cancelFile)) fs.unlinkSync(args.cancelFile);
 
+    // JSX ki TEMP copy — install folder (Program Files) read-only hai,
+    // is liye asal apply-preset.jsx ko rewrite karne par
+    // UnauthorizedAccessException aata tha. run-batch.ps1 ko COPY ka
+    // path do; wo ARGS_PATH line usi copy me rewrite karta hai.
+    const runJsx = buildRunJsxPath(workDir);
+    try { fs.copyFileSync(jsxPath(), runJsx); }
+    catch (err) { reject(new Error('Could not copy apply-preset.jsx to temp folder: ' + err.message)); return; }
+
     const ps = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass',
-      '-File', ps1Path(), '-Jsx', jsxPath(), '-Args', argsFile], { windowsHide: true });
+      '-File', ps1Path(), '-Jsx', runJsx, '-Args', argsFile], { windowsHide: true });
 
     let stderr = '';
     ps.stderr.on('data', (d) => { stderr += d.toString(); });
@@ -312,6 +439,8 @@ module.exports = {
   buildOutputName, parseXmpSettings, buildBatchArgs,
   parsePhotoshopVersion, photoshopYearLabel, photoshopYearName,
   photoshopMajorToAcr, acrToPhotoshopMajor,
+  photoshopExePathToVersion, parsePhotoshopRegistryOutput, candidateToExe,
+  buildRunJsxPath, getCachedPhotoshop, PHOTOSHOP_KNOWN_PATHS,
   detectPresetRequirements, checkPresetCompatibility,
   checkPhotoshop, installPresetToCameraRaw, runBatch, cancelBatch,
   jsxPath, ps1Path, config,

@@ -31,5 +31,5 @@ nsis:
   uninstallerIcon: build/icon.ico
 publish:
   provider: github
-  owner: ShoaibAzeez
+  owner: shoaibulhassan544-ops
   repo: zubii-batch-preset-tool

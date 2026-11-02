@@ -174,19 +174,125 @@ console.log('PASS: .github/workflows/build-windows.yml (windows-latest, Node 20,
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'app', 'package.json'), 'utf8'));
 assert.strictEqual(pkg.productName, 'Zubii Batch Preset Tool');
 assert.strictEqual(pkg.name, 'zubii-batch-preset-tool');
-assert.strictEqual(pkg.version, '1.2.0');
+assert.strictEqual(pkg.version, '1.2.1');
 const cfg = require(path.join(__dirname, '..', 'app', 'src', 'main', 'config.js'));
 assert.strictEqual(cfg.appName, 'Zubii Batch Preset Tool');
 assert.strictEqual(cfg.githubRepo, 'zubii-batch-preset-tool');
-assert.strictEqual(cfg.version, '1.2.0');
+assert.strictEqual(cfg.githubOwner, 'shoaibulhassan544-ops');
+assert.strictEqual(cfg.version, '1.2.1');
 const builder = fs.readFileSync(path.join(__dirname, '..', 'app', 'electron-builder.yml'), 'utf8');
 assert.ok(builder.includes('productName: Zubii Batch Preset Tool'));
 assert.ok(builder.includes('repo: zubii-batch-preset-tool'));
+assert.ok(builder.includes('owner: shoaibulhassan544-ops'), 'updater owner doosre account par hona chahiye');
 const html = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'index.html'), 'utf8');
 assert.ok(html.includes('<h1>Zubii Batch Preset Tool</h1>'));
-console.log('PASS: Zubii naam (package.json, config.js, electron-builder.yml, header)');
+console.log('PASS: Zubii naam + v1.2.1 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
 
-// 10. No licence SYSTEM anywhere in this project — i.e. no code that
+// 16. Exe path se Photoshop version — COM fallback ke liye.
+assert.deepStrictEqual(ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Photoshop 2023\\Photoshop.exe'), { major: 24, version: '24.0' });
+assert.deepStrictEqual(ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Photoshop CC 2019\\Photoshop.exe'), { major: 20, version: '20.0' });
+assert.deepStrictEqual(ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Photoshop 2025\\Photoshop.exe'), { major: 26, version: '26.0' });
+assert.strictEqual(ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Bridge\\Bridge.exe'), null);
+assert.strictEqual(ps.photoshopExePathToVersion(''), null);
+console.log('PASS: photoshopExePathToVersion (2023->24, CC 2019->20, 2025->26, ghair-Photoshop->null)');
+
+// 17. Registry output parse + candidate -> exe.
+const regSample = 'C:\\Program Files\\Adobe\\Adobe Photoshop 2020\\\r\n\r\nC:\\Program Files\\Adobe\\Adobe Photoshop 2024\\\r\n';
+assert.deepStrictEqual(ps.parsePhotoshopRegistryOutput(regSample), [
+  'C:\\Program Files\\Adobe\\Adobe Photoshop 2020\\',
+  'C:\\Program Files\\Adobe\\Adobe Photoshop 2024\\',
+]);
+assert.strictEqual(ps.parsePhotoshopRegistryOutput('').length, 0);
+assert.strictEqual(ps.candidateToExe('C:\\Program Files\\Adobe\\Adobe Photoshop 2024\\'), path.join('C:\\Program Files\\Adobe\\Adobe Photoshop 2024\\', 'Photoshop.exe'));
+assert.strictEqual(ps.candidateToExe('C:\\PS\\Photoshop.exe'), 'C:\\PS\\Photoshop.exe');
+assert.strictEqual(ps.candidateToExe(''), null);
+console.log('PASS: parsePhotoshopRegistryOutput + candidateToExe');
+
+// 18. JSX temp-copy path — run ke workDir me.
+assert.strictEqual(ps.buildRunJsxPath('C:\\Temp\\zubii\\batch'), path.join('C:\\Temp\\zubii\\batch', 'apply-preset.jsx'));
+assert.strictEqual(typeof ps.getCachedPhotoshop, 'function', 'cached version getter hona chahiye');
+assert.strictEqual(ps.getCachedPhotoshop(), null, 'check se pehle cache khaali hona chahiye');
+console.log('PASS: buildRunJsxPath + getCachedPhotoshop');
+
+// 19. Photoshop ko KABHI band nahi karna — Quit kahin nahi hona chahiye.
+//     COM object sirf release hota hai (ReleaseComObject), band nahi.
+for (const f of ['app/src/main/photoshop.js', 'scripts/run-batch.ps1']) {
+  const src = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  assert.ok(!/\$ps\.Quit/.test(src), f + ' me Quit call baqi hai — Photoshop band ho jayega');
+  assert.ok(!/\.Quit\(\)/.test(src), f + ' me .Quit() baqi hai');
+}
+const psMain = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'main', 'photoshop.js'), 'utf8');
+assert.ok(psMain.includes('ReleaseComObject'), 'COM object release hona chahiye (ReleaseComObject)');
+assert.ok(psMain.includes('cachedCheck'), 'version cache hona chahiye');
+console.log('PASS: no Quit anywhere (photoshop.js, run-batch.ps1) — COM release only + version cache');
+
+// 20. JSX temp copy — asal JSX install folder me rewrite NAHI hota.
+assert.ok(psMain.includes('copyFileSync'), 'runBatch ko JSX ki temp copy karni chahiye');
+assert.ok(psMain.includes('buildRunJsxPath'), 'runBatch ko temp-copy path istemal karna chahiye');
+const ps1run = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'run-batch.ps1'), 'utf8');
+assert.ok(ps1run.includes('Set-Content'), 'run-batch.ps1 ARGS_PATH ko (temp copy me) rewrite karta hai');
+console.log('PASS: JSX temp-copy fix (copyFileSync + buildRunJsxPath, Set-Content sirf temp copy par)');
+
+// 21. VIP title + bara "Z" logo — camera emoji nahi.
+const css = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'css', 'styles.css'), 'utf8');
+assert.ok(html.includes('<span class="logo">Z</span>'), 'logo Z hona chahiye');
+assert.ok(!html.includes('📷'), 'camera emoji nahi hona chahiye');
+assert.ok(css.includes('Cormorant Garamond'), 'title serif font hona chahiye');
+assert.ok(css.includes('#C9A227'), 'title/logo sunehra gold hona chahiye');
+assert.ok(css.includes('.brand h1'), 'title ke liye .brand h1 rule hona chahiye');
+assert.ok(/\.logo\s*\{[^}]*font-size:\s*42px/.test(css), 'Z logo bara hona chahiye (42px)');
+console.log('PASS: VIP gold serif title + bara Z logo (camera emoji nahi)');
+
+// 22. "Dobara check karo" button — badge ke saath, wiring samet.
+assert.ok(html.includes('id="btn-ps-recheck"'), 're-check button index.html me hona chahiye');
+assert.ok(html.includes('Dobara check karo'), 'button par "Dobara check karo" likha hona chahiye');
+const appJs = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'js', 'app.js'), 'utf8');
+assert.ok(appJs.includes('refreshPhotoshopStatus'), 're-check ke liye refreshPhotoshopStatus function honi chahiye');
+assert.ok(appJs.includes("btn-ps-recheck').onclick = () => refreshPhotoshopStatus(true)"), 're-check button ko force check chalana chahiye');
+assert.ok(appJs.includes('checkPhotoshop(force)'), 'refreshPhotoshopStatus ko force flag aage bhejna chahiye');
+assert.ok(css.includes('.btn.ps-recheck'), 're-check button ka CSS hona chahiye');
+console.log('PASS: "Dobara check karo" button (index.html + app.js wiring + CSS)');
+
+// 23. Footer credit (aik dafa) + Support button (WhatsApp).
+const creditCount = (html.match(/Developed by Shoaib Azeez/g) || []).length;
+assert.strictEqual(creditCount, 1, 'credit sirf aik dafa hona chahiye, mila: ' + creditCount);
+assert.ok(html.includes('id="btn-support"'), 'Support button index.html me hona chahiye');
+const mainJs = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'main', 'main.js'), 'utf8');
+assert.ok(mainJs.includes('wa.me/923060756225'), 'Support button ko WhatsApp (wa.me/923060756225) kholna chahiye');
+assert.ok(appJs.includes('openSupport'), 'renderer ko openSupport call karna chahiye');
+console.log('PASS: footer credit (aik dafa) + Support button (WhatsApp)');
+
+// 24. Compatibility check dobara COM NAHI chalata — cached version hi.
+assert.ok(!/presets:check-compatibility[\s\S]{0,600}checkPhotoshop\(\)/.test(mainJs), 'compatibility handler ko dobara COM check nahi chalana chahiye');
+assert.ok(mainJs.includes('getCachedPhotoshop'), 'compatibility handler ko cached version istemal karna chahiye');
+console.log('PASS: presets:check-compatibility cached version istemal karta hai (dobara COM nahi)');
+
+// 25. README — Download section bilkul upar + Requirements saaf.
+const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
+const dlIdx = readme.indexOf('## ⬇ Download');
+assert.ok(dlIdx > 0, 'README me Download section hona chahiye');
+assert.ok(dlIdx < readme.indexOf('## Workflow'), 'Download section bilkul upar hona chahiye (Workflow se pehle)');
+assert.ok(readme.includes('exe file for Windows'), 'Download section me "exe file for Windows" likha hona chahiye');
+assert.ok(readme.includes('https://github.com/shoaibulhassan544-ops/zubii-batch-preset-tool/releases'), 'Download section me Releases page ka link hona chahiye');
+assert.ok(readme.includes('Windows 10/11 (64-bit)'), 'Requirements me Windows 10/11 64-bit hona chahiye');
+assert.ok(readme.includes('Adobe Photoshop CC 2019 (20.x) se 2025 (26.x) lazmi'), 'Requirements me Photoshop range saaf honi chahiye');
+assert.ok(readme.includes('Exe chalane ke liye Node.js nahi chahiye'), 'Requirements me saaf hona chahiye ke Node.js sirf build ke liye hai');
+console.log('PASS: README Download section (upar) + Requirements (Windows 10/11, Photoshop lazmi, Node.js sirf build)');
+
+// 26. Workflow — Release me exe + latest.yml, naam/body, --publish=never.
+assert.ok(wf.includes('--publish=never'), 'workflow me --publish=never hona chahiye (GH_TOKEN issue)');
+assert.ok(wf.includes('exe file for Windows'), 'Release naam/body me "exe file for Windows" hona chahiye');
+assert.ok(wf.includes('name: ${{ github.ref_name }}'), 'Release naam tag se banna chahiye');
+assert.ok(wf.includes('shoaibulhassan544-ops'), 'workflow header me doosra account hona chahiye');
+assert.ok(!wf.includes('ShoaibAzeez'), 'workflow me purana owner nahi hona chahiye');
+console.log('PASS: workflow (Release exe + latest.yml, "exe file for Windows", --publish=never, owner shoaibulhassan544-ops)');
+
+// 27. Naam "Meta Box" kahin nahi — poore project me zero hits.
+const { execSync: execSyncMeta } = require('child_process');
+const metaHits = execSyncMeta('grep -rIn --exclude-dir=node_modules --exclude-dir=dist --exclude=package-lock.json --exclude=self-test.js -F "Meta Box" . || true',
+  { cwd: path.join(__dirname, '..'), encoding: 'utf8' }).trim();
+assert.strictEqual(metaHits, '', '"Meta Box" kahin nahi hona chahiye:\n' + metaHits);
+console.log('PASS: no "Meta Box" anywhere in project');
 //    validates/activates/checks a licence key or talks to a licence
 //    server. (Plain words like "licence" in docs, or "Photoshop
 //    server. (Plain words like "licence" in docs, or "Photoshop

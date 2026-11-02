@@ -1,0 +1,21 @@
+{
+  "author": "Zubair Ul Hassan — Zubii Photography",
+  "dependencies": {
+    "electron-updater": "^6.1.0"
+  },
+  "description": "Zubii Batch Preset Tool — apply an XMP preset to 40-50 JPG photos at once through Adobe Photoshop. Free, no licence, updates from GitHub.",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0"
+  },
+  "main": "src/main/main.js",
+  "name": "zubii-batch-preset-tool",
+  "productName": "Zubii Batch Preset Tool",
+  "scripts": {
+    "dev": "electron . --dev",
+    "dist:win": "electron-builder --win nsis",
+    "start": "electron .",
+    "test": "node scripts/self-test.js"
+  },
+  "version": "1.2.0"
+}

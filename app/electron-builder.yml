@@ -1,0 +1,35 @@
+appId: com.zubii.batchpreset
+productName: Zubii Batch Preset Tool
+copyright: Copyright © 2026 Zubii Photography
+directories:
+  output: dist
+  buildResources: build
+files:
+  - src/**/*
+  - package.json
+extraResources:
+  - from: ../scripts/
+    to: scripts
+    filter:
+      - apply-preset.jsx
+      - run-batch.ps1
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ZubiiBatchPresetTool-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Zubii Batch Preset Tool
+  uninstallDisplayName: Zubii Batch Preset Tool
+  installerHeaderIcon: build/icon.ico
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+publish:
+  provider: github
+  owner: ShoaibAzeez
+  repo: zubii-batch-preset-tool

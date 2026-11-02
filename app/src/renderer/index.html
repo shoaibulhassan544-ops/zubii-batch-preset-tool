@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zubii Batch Preset Tool — Free</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">📷</span><h1>Zubii Batch Preset Tool</h1><span class="free-badge">FREE · No Licence</span></div>
+  <div class="top-actions">
+    <span id="ps-status" class="ps-status checking">Photoshop check ho raha hai…</span>
+    <button id="btn-updates" class="btn ghost">Check for updates</button>
+    <span id="app-version" class="version"></span>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- LEFT: presets -->
+  <section class="card presets">
+    <h2>XMP Presets</h2>
+    <input id="preset-search" type="search" placeholder="Search presets…" aria-label="Search presets">
+    <div id="preset-list" class="preset-list"><p class="muted">Koi preset nahi — neeche se import karo.</p></div>
+    <button id="btn-import-preset" class="btn outline full">+ Import XMP Preset</button>
+    <button id="btn-install-cr" class="btn ghost full" title="Preset ko Photoshop ke Camera Raw Settings folder me bhi copy karega">Install preset in Camera Raw</button>
+    <div id="preset-detail" class="preset-detail muted"></div>
+  </section>
+
+  <!-- CENTER: photos + before/after preview -->
+  <section class="card preview">
+    <h2>Before / After Preview</h2>
+    <p class="muted" id="photo-count">0 photos selected · Hover to compare · Grid view</p>
+    <div class="photo-actions">
+      <button id="btn-add-photos" class="btn primary">Add Photos</button>
+      <button id="btn-add-folder" class="btn outline">Add Folder</button>
+      <button id="btn-clear-photos" class="btn ghost">Clear</button>
+      <button id="btn-test-one" class="btn outline" title="Pehli photo par asal Photoshop preset laga kar preview dikhaye ga">Test one photo</button>
+      <button id="btn-auto-pick" class="btn primary" title="Har photo ka analysis karke sab se acha preset khud chunega">✦ Auto Pick Preset</button>
+    </div>
+    <div id="auto-status" class="muted small"></div>
+    <div id="photo-detail" class="photo-detail hidden"></div>
+    <div id="photo-grid" class="photo-grid"><p class="muted empty">Photos add karo — JPG files, 40–50 aik saath chal jayengi.</p></div>
+    <div id="compare" class="compare hidden">
+      <div class="compare-pane"><span class="tag">BEFORE</span><img id="img-before" alt="Original photo"></div>
+      <div class="compare-pane"><span class="tag">AFTER</span><img id="img-after" alt="Photo with preset applied"></div>
+    </div>
+  </section>
+
+  <!-- RIGHT: export settings -->
+  <section class="card export">
+    <h2>Export Settings</h2>
+    <label class="field">JPG Quality <span id="quality-val" class="val">85%</span></label>
+    <input id="quality" type="range" min="50" max="100" value="85">
+    <p class="muted small">85 · High Quality</p>
+
+    <label class="field">Output Folder</label>
+    <div class="row"><input id="output-dir" type="text" readonly><button id="btn-output-dir" class="btn outline">📁</button></div>
+
+    <label class="field row-between">Resize <input id="resize-toggle" type="checkbox"></label>
+    <div class="row"><span class="muted small">Width:</span><input id="resize-width" type="number" value="2048" min="800" max="6000" step="1"> <span class="muted small">px</span></div>
+
+    <label class="field">File Naming</label>
+    <input id="naming" type="text" value="{preset}_{filename}_{seq}">
+    <p class="muted small">{preset} · {filename} · {seq} — e.g. wedding-classic_DSC0123_001.jpg</p>
+
+    <button id="btn-start" class="btn start full">▶ Start Batch</button>
+    <button id="btn-cancel" class="btn ghost full hidden">Cancel</button>
+
+    <div class="progress-wrap">
+      <p id="progress-text" class="muted">Ready — 0 of 0 photos</p>
+      <div class="progress"><div id="progress-bar"></div></div>
+      <p id="eta" class="muted small"></p>
+    </div>
+    <pre id="log" class="log" aria-live="polite"></pre>
+    <button id="btn-open-output" class="btn outline full hidden">Open Output Folder</button>
+  </section>
+</main>
+
+<footer class="steps">
+  <div class="step done" id="step-1"><span class="num">1</span> Add Photos</div>
+  <div class="step" id="step-2"><span class="num">2</span> Choose XMP Preset</div>
+  <div class="step" id="step-3"><span class="num">3</span> Preview</div>
+  <div class="step" id="step-4"><span class="num">4</span> Export JPG</div>
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>

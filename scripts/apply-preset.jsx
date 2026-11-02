@@ -1,8 +1,8 @@
-// apply-preset.jsx — ExtendScript for Adobe Photoshop (CC 2019 / 20.x se
-// 2025 / 26.x tak — har version; COM ProgID version-independent hai).
+// apply-preset.jsx - ExtendScript for Adobe Photoshop (CC 2019 / 20.x se
+// 2025 / 26.x tak - har version; COM ProgID version-independent hai).
 // Run by PowerShell via Photoshop COM: app.DoJavaScriptFile(this file).
 // Reads its arguments from a JSON file whose path is embedded below by
-// the Electron main process (see photoshop.js — it writes batch-args.json
+// the Electron main process (see photoshop.js - it writes batch-args.json
 // and rewrites the ARGS_PATH line before each run).
 //
 // args JSON:
@@ -17,6 +17,279 @@
 //   save as JPG -> close. Originals are never touched.
 
 #target photoshop
+
+// JSON-POLYFILL-START
+// JSON polyfill - Photoshop CC 2019 ke ExtendScript engine (ES3) me
+// native JSON object maujood nahi hota ("ReferenceError: JSON is
+// undefined"). Is liye JSON.parse / JSON.stringify yahan define kiye
+// gaye hain. Sirf tab define hota hai jab typeof JSON === "undefined"
+// ho - naye Photoshop par native JSON ho to usay chheda nahi jata.
+// ES3-safe: Object.keys / Array.isArray / trim / map waghera kuch nahi.
+// Sirf wahi shapes support karta hai jo tool istemal karta hai:
+// objects, arrays, strings, numbers, booleans, null. (Crockford
+// json2.js ke public-domain design par mabni, is tool ke liye chhota
+// karke likha gaya.)
+if (typeof JSON === "undefined") {
+  JSON = {};
+  (function () {
+    // quote() - string ko JSON string literal banata hai. Regex ki
+    // bajaye seedha char loop hai (regex literal me '"' hota to
+    // self-test ka stripper confuse hota hai, aur loop ES3 me saaf hai).
+    function quote(string) {
+      var out = '"', i, c, code;
+      for (i = 0; i < string.length; i += 1) {
+        c = string.charAt(i);
+        code = string.charCodeAt(i);
+        if (c === '"') {
+          out += '\\"';
+        } else if (c === "\\") {
+          out += "\\\\";
+        } else if (c === "\b") {
+          out += "\\b";
+        } else if (c === "\f") {
+          out += "\\f";
+        } else if (c === "\n") {
+          out += "\\n";
+        } else if (c === "\r") {
+          out += "\\r";
+        } else if (c === "\t") {
+          out += "\\t";
+        } else if (code < 0x20 || code === 0x7f ||
+          (code >= 0x80 && code <= 0x9f) || code === 0x00ad ||
+          (code >= 0x0600 && code <= 0x0604) || code === 0x070f ||
+          code === 0x17b4 || code === 0x17b5 ||
+          (code >= 0x200c && code <= 0x200f) ||
+          (code >= 0x2028 && code <= 0x202f) ||
+          (code >= 0x2060 && code <= 0x2064) || code === 0xfeff ||
+          (code >= 0xfff0 && code <= 0xffff)) {
+          out += "\\u" + ("0000" + code.toString(16)).slice(-4);
+        } else {
+          out += c;
+        }
+      }
+      return out + '"';
+    }
+    function str(key, holder) {
+      var i, k, v, length, partial, value = holder[key];
+      if (value && typeof value === "object" && typeof value.toJSON === "function") {
+        value = value.toJSON(key);
+      }
+      switch (typeof value) {
+        case "string":
+          return quote(value);
+        case "number":
+          return isFinite(value) ? String(value) : "null";
+        case "boolean":
+          return String(value);
+        case "object":
+          if (!value) {
+            return "null";
+          }
+          partial = [];
+          if (Object.prototype.toString.apply(value) === "[object Array]") {
+            length = value.length;
+            for (i = 0; i < length; i += 1) {
+              partial[i] = str(i, value) || "null";
+            }
+            return partial.length === 0 ? "[]" : "[" + partial.join(",") + "]";
+          }
+          for (k in value) {
+            if (Object.prototype.hasOwnProperty.call(value, k)) {
+              v = str(k, value);
+              if (v) {
+                partial.push(quote(k) + ":" + v);
+              }
+            }
+          }
+          return partial.length === 0 ? "{}" : "{" + partial.join(",") + "}";
+      }
+      return undefined;
+    }
+    JSON.stringify = function (value) {
+      return str("", { "": value });
+    };
+    var text, at, ch;
+    var escapee = {
+      '"': '"', "\\": "\\", "/": "/",
+      b: "\b", f: "\f", n: "\n", r: "\r", t: "\t"
+    };
+    function parseError(m) {
+      throw new SyntaxError(m);
+    }
+    function next(c) {
+      if (c && c !== ch) {
+        parseError("Expected '" + c + "' instead of '" + ch + "'");
+      }
+      ch = text.charAt(at);
+      at += 1;
+      return ch;
+    }
+    function white() {
+      while (ch) {
+        if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
+          next();
+        } else {
+          break;
+        }
+      }
+    }
+    function parseString() {
+      var hex, i, uffff, s = "";
+      if (ch === '"') {
+        while (next()) {
+          if (ch === '"') {
+            next();
+            return s;
+          }
+          if (ch === "\\") {
+            next();
+            if (ch === "u") {
+              uffff = 0;
+              for (i = 0; i < 4; i += 1) {
+                hex = parseInt(next(), 16);
+                if (!isFinite(hex)) {
+                  break;
+                }
+                uffff = uffff * 16 + hex;
+              }
+              s += String.fromCharCode(uffff);
+            } else if (typeof escapee[ch] === "string") {
+              s += escapee[ch];
+            } else {
+              break;
+            }
+          } else {
+            s += ch;
+          }
+        }
+      }
+      parseError("Bad string");
+    }
+    function parseNumber() {
+      var string = "";
+      if (ch === "-") {
+        string = "-";
+        next("-");
+      }
+      while (ch >= "0" && ch <= "9") {
+        string += ch;
+        next();
+      }
+      if (ch === ".") {
+        string += ".";
+        while (next() && ch >= "0" && ch <= "9") {
+          string += ch;
+        }
+      }
+      if (ch === "e" || ch === "E") {
+        string += ch;
+        next();
+        if (ch === "-" || ch === "+") {
+          string += ch;
+          next();
+        }
+        while (ch >= "0" && ch <= "9") {
+          string += ch;
+          next();
+        }
+      }
+      var num = parseFloat(string);
+      if (!isFinite(num)) {
+        parseError("Bad number");
+      }
+      return num;
+    }
+    function parseWord() {
+      switch (ch) {
+        case "t":
+          next("t"); next("r"); next("u"); next("e");
+          return true;
+        case "f":
+          next("f"); next("a"); next("l"); next("s"); next("e");
+          return false;
+        case "n":
+          next("n"); next("u"); next("l"); next("l");
+          return null;
+      }
+      parseError("Unexpected '" + ch + "'");
+    }
+    function parseArray() {
+      var arr = [];
+      if (ch === "[") {
+        next("[");
+        white();
+        if (ch === "]") {
+          next("]");
+          return arr;
+        }
+        while (ch) {
+          arr.push(parseValue());
+          white();
+          if (ch === "]") {
+            next("]");
+            return arr;
+          }
+          next(",");
+          white();
+        }
+      }
+      parseError("Bad array");
+    }
+    function parseObject() {
+      var key, obj = {};
+      if (ch === "{") {
+        next("{");
+        white();
+        if (ch === "}") {
+          next("}");
+          return obj;
+        }
+        while (ch) {
+          key = parseString();
+          white();
+          next(":");
+          obj[key] = parseValue();
+          white();
+          if (ch === "}") {
+            next("}");
+            return obj;
+          }
+          next(",");
+          white();
+        }
+      }
+      parseError("Bad object");
+    }
+    function parseValue() {
+      white();
+      switch (ch) {
+        case "{":
+          return parseObject();
+        case "[":
+          return parseArray();
+        case '"':
+          return parseString();
+        case "-":
+          return parseNumber();
+        default:
+          return (ch >= "0" && ch <= "9") ? parseNumber() : parseWord();
+      }
+    }
+    JSON.parse = function (source) {
+      var result;
+      text = String(source);
+      at = 0;
+      ch = " ";
+      result = parseValue();
+      white();
+      if (ch) {
+        parseError("Syntax error");
+      }
+      return result;
+    };
+  }());
+}
+// JSON-POLYFILL-END
 
 var ARGS_PATH = ""; // <-- replaced by the runner before each batch
 
@@ -115,7 +388,7 @@ function main() {
         desc.putString(stringIDToTypeID("cameraRawSettings"), filePresetXmp);
         executeAction(stringIDToTypeID("Adobe Camera Raw Filter"), desc, DialogModes.NO);
       } catch (e2) {
-        // Filter fallback not available on this build — the open path
+        // Filter fallback not available on this build - the open path
         // already applied the preset. Continue with the document as-is.
       }
 

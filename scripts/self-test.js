@@ -174,19 +174,19 @@ console.log('PASS: .github/workflows/build-windows.yml (windows-latest, Node 20,
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'app', 'package.json'), 'utf8'));
 assert.strictEqual(pkg.productName, 'Zubii Batch Preset Tool');
 assert.strictEqual(pkg.name, 'zubii-batch-preset-tool');
-assert.strictEqual(pkg.version, '1.2.4');
+assert.strictEqual(pkg.version, '1.2.5');
 const cfg = require(path.join(__dirname, '..', 'app', 'src', 'main', 'config.js'));
 assert.strictEqual(cfg.appName, 'Zubii Batch Preset Tool');
 assert.strictEqual(cfg.githubRepo, 'zubii-batch-preset-tool');
 assert.strictEqual(cfg.githubOwner, 'shoaibulhassan544-ops');
-assert.strictEqual(cfg.version, '1.2.4');
+assert.strictEqual(cfg.version, '1.2.5');
 const builder = fs.readFileSync(path.join(__dirname, '..', 'app', 'electron-builder.yml'), 'utf8');
 assert.ok(builder.includes('productName: Zubii Batch Preset Tool'));
 assert.ok(builder.includes('repo: zubii-batch-preset-tool'));
 assert.ok(builder.includes('owner: shoaibulhassan544-ops'), 'updater owner doosre account par hona chahiye');
 const html = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'index.html'), 'utf8');
 assert.ok(html.includes('<h1>Zubii Batch Preset Tool</h1>'));
-console.log('PASS: Zubii naam + v1.2.4 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
+console.log('PASS: Zubii naam + v1.2.5 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
 
 // 16. Exe path se Photoshop version — COM fallback ke liye.
 assert.deepStrictEqual(ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Photoshop 2023\\Photoshop.exe'), { major: 24, version: '24.0' });
@@ -508,11 +508,11 @@ assert.ok(appJs21.includes("'NOTE: ' + s.note"), 'note (COM adhoora hai) log me 
 assert.ok(appJs21.includes('Batch ruk gaya'), 'fatal par progress text badalna chahiye');
 console.log('PASS: batch fatal/note renderer me dikhte hain (0% stuck nahi)');
 
-// 43. README — v1.2.4 entry + Download section nayi version.
-assert.ok(readme.includes('**v1.2.4**'), 'README me v1.2.4 entry honi chahiye');
-assert.ok(readme.includes('ZubiiBatchPresetTool-Setup-1.2.4.exe'), 'README Download me 1.2.4 exe honi chahiye');
-assert.ok(readme.includes('COM adhoora'), 'README me COM adhoora wali wajah likhi honi chahiye');
-console.log('PASS: README v1.2.4 entry + Download (1.2.4 exe)');
+// 43. README — v1.2.5 entry + Download section nayi version.
+assert.ok(readme.includes('**v1.2.5**'), 'README me v1.2.5 entry honi chahiye');
+assert.ok(readme.includes('ZubiiBatchPresetTool-Setup-1.2.5.exe'), 'README Download me 1.2.5 exe honi chahiye');
+assert.ok(readme.includes('JSON is undefined'), 'README me JSON polyfill wali wajah likhi honi chahiye');
+console.log('PASS: README v1.2.5 entry + Download (1.2.5 exe)');
 
 // 44. run-batch.ps1 encoding — Windows PowerShell 5.1 ke liye UTF-8
 //     WITH BOM + CRLF. v1.2.3 ki file LF + no-BOM thi.
@@ -629,6 +629,87 @@ for (const needle of ['ParseFile', 'PARSE ERROR', 'shell: powershell', 'jsx-chec
 assert.ok(wf.indexOf('PowerShell script parse check karo') < wf.indexOf('Dependencies install karo'),
   'parse gate build (npm install) se PEHLE chalna chahiye');
 console.log('PASS: workflow parse gate (Parser::ParseFile, build se pehle) + JSX node --check');
+
+// 47. JSX JSON polyfill — ExtendScript CC 2019 me native JSON nahi hota.
+//     Polyfill ko aise vm sandbox me chalao jahan JSON global maujood NA
+//     HO, phir args/progress jaisi asal shapes ka round-trip test karo.
+//     Ye test v1.2.4 wali "JSON is undefined" (Error 54, Line 163) ghalti
+//     ko dobara hone se rokta hai.
+const vm = require('vm');
+const jsxText = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'apply-preset.jsx'), 'utf8');
+const polyStart = jsxText.indexOf('// JSON-POLYFILL-START');
+const polyEnd = jsxText.indexOf('// JSON-POLYFILL-END');
+assert.ok(polyStart >= 0 && polyEnd > polyStart, 'JSX me JSON polyfill markers hone chahiye');
+const polyfillSrc = jsxText.slice(polyStart, polyEnd);
+// Sandbox jis me JSON nahi hai (ExtendScript CC 2019 jaisa).
+const noJsonSandbox = { JSON: undefined };
+vm.createContext(noJsonSandbox);
+noJsonSandbox.JSON = undefined; // yaqeeni: createContext ke baad bhi JSON nahi
+assert.strictEqual(vm.runInContext('typeof JSON', noJsonSandbox), 'undefined',
+  'sandbox me pehle JSON undefined hona chahiye (ExtendScript jaisa)');
+vm.runInContext(polyfillSrc, noJsonSandbox);
+assert.strictEqual(typeof noJsonSandbox.JSON, 'object', 'polyfill ke baad sandbox me JSON object hona chahiye');
+// Asal batch-args jaisi shape: nested objects/arrays, quotes/backslash,
+// newline, numbers, booleans, null.
+const argsLike = {
+  presetPath: 'C:\\Presets\\Wedding "Classic".xmp', presetName: 'Wedding\nClassic',
+  files: [
+    { src: 'C:\\Photos\\a.jpg', index: 0, presetPath: null, presetName: null },
+    { src: 'C:\\Photos\\b.jpg', index: 1, presetPath: 'C:\\Presets\\Warm.xmp', presetName: 'Warm' },
+  ],
+  outputDir: 'C:\\Exports', quality: 85, resize: true, resizeWidth: 2048,
+  namingPattern: '{preset}_{filename}_{seq}', workDir: 'C:\\Temp\\zubii',
+  progressFile: 'C:\\Temp\\zubii\\progress.json', cancelFile: 'C:\\Temp\\zubii\\cancel.flag',
+};
+const argsJson = JSON.stringify(argsLike);
+noJsonSandbox.__argsJson = argsJson;
+const parsedBack = vm.runInContext('JSON.parse(__argsJson)', noJsonSandbox);
+assert.strictEqual(JSON.stringify(parsedBack), argsJson,
+  'polyfill JSON.parse ne args JSON theek parse nahi kiya');
+const stringifiedBack = vm.runInContext('JSON.stringify(JSON.parse(__argsJson))', noJsonSandbox);
+assert.strictEqual(stringifiedBack, argsJson,
+  'polyfill JSON.stringify round-trip Node wali string se match nahi karta');
+// Progress state jaisi shape + fatal error string.
+const stateLike = { total: 2, done: 1, ok: 1, failed: 0, current: 'a.jpg', errors: [{ file: '', error: 'Fatal: boom "quoted" \\ slash' }] };
+const stateJson = JSON.stringify(stateLike);
+noJsonSandbox.__stateJson = stateJson;
+assert.strictEqual(vm.runInContext('JSON.stringify(JSON.parse(__stateJson))', noJsonSandbox), stateJson,
+  'polyfill progress-state round-trip fail');
+// Khaas cases: khaali object/array, unicode escape, control char, NaN -> null.
+assert.strictEqual(vm.runInContext('JSON.stringify({})', noJsonSandbox), '{}', 'polyfill {} fail');
+assert.strictEqual(vm.runInContext('JSON.stringify([])', noJsonSandbox), '[]', 'polyfill [] fail');
+assert.strictEqual(vm.runInContext('JSON.stringify({a: "caf\\u00e9"})', noJsonSandbox), '{"a":"caf\u00e9"}', 'polyfill unicode escape fail');
+assert.strictEqual(vm.runInContext('JSON.stringify({a: "\\u0001"})', noJsonSandbox), '{"a":"\\u0001"}', 'polyfill control char escape fail');
+assert.strictEqual(vm.runInContext('JSON.stringify({a: NaN})', noJsonSandbox), '{"a":null}', 'polyfill NaN -> null fail');
+assert.strictEqual(vm.runInContext('JSON.parse("{\\"a\\":1}")', noJsonSandbox).a, 1, 'polyfill parse number fail');
+assert.strictEqual(vm.runInContext('JSON.parse("[true,false,null]")', noJsonSandbox).length, 3, 'polyfill parse literals fail');
+// Native JSON ho to polyfill usay chhede nahi (guard test).
+const nativeSandbox = {};
+vm.createContext(nativeSandbox);
+const nativeJSON = vm.runInContext('JSON', nativeSandbox);
+vm.runInContext(polyfillSrc, nativeSandbox);
+assert.strictEqual(vm.runInContext('JSON', nativeSandbox), nativeJSON,
+  'native JSON maujood ho to polyfill usay replace nahi karna chahiye');
+console.log('PASS: JSX JSON polyfill works without native JSON (ExtendScript CC 2019) + native guard');
+
+// 48. JSX lint — JSON istemal sirf polyfill ke BAAD ho, file pure ASCII ho.
+//     v1.2.4 me "JSON is undefined" is liye aaya ke JSX me JSON.parse/
+//     stringify tha lekin ExtendScript me JSON tha hi nahi. Polyfill ke
+//     baad istemal lazmi hai, warna dobara wahi error aayega.
+const jsxBuf = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'apply-preset.jsx'));
+assert.ok([...jsxBuf].every((b) => b < 128), 'apply-preset.jsx pure ASCII honi chahiye (ExtendScript/encoding safe)');
+const jsxLines = jsxText.split('\n');
+const polyEndLine = jsxLines.findIndex((l) => l.includes('// JSON-POLYFILL-END'));
+assert.ok(polyEndLine > 0, 'JSX me JSON-POLYFILL-END marker hona chahiye');
+jsxLines.forEach((line, idx) => {
+  if (line.trim().startsWith('//')) return; // comment lines me JSON ka zikr theek hai
+  if (line.includes('JSON.parse(') || line.includes('JSON.stringify(')) {
+    assert.ok(idx > polyEndLine, 'JSX line ' + (idx + 1) + ' me JSON istemal polyfill se pehle hai: ' + line.trim());
+  }
+});
+assert.ok(jsxText.includes('var ARGS_PATH = "";'), 'JSX me ARGS_PATH line honi chahiye');
+assert.ok(jsxText.includes('#target photoshop'), 'JSX me #target photoshop hona chahiye');
+console.log('PASS: JSX lint (JSON usage polyfill ke baad hi, pure ASCII)');
 
 // 35. Async: findPhotoshopOnDisk hamesha resolve hota hai (hang nahi) aur
 //     checkManualPhotoshop fake exe par folder version deta hai.

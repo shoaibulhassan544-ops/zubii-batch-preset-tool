@@ -6,9 +6,9 @@ Updates GitHub Releases se aati hain (MetaBox tool jaisa update flow, licence ke
 
 Made by Zubair Ul Hassan — Zubii Photography.
 
-## ⬇ Download — exe file for Windows (v1.2.4)
+## ⬇ Download — exe file for Windows (v1.2.5)
 
-**[ZubiiBatchPresetTool-Setup-1.2.4.exe — exe file for Windows](https://github.com/shoaibulhassan544-ops/zubii-batch-preset-tool/releases)** — Releases page se latest version download karo (exe file for Windows). Download karke install karo, Photoshop khol kar test karo.
+**[ZubiiBatchPresetTool-Setup-1.2.5.exe — exe file for Windows](https://github.com/shoaibulhassan544-ops/zubii-batch-preset-tool/releases)** — Releases page se latest version download karo (exe file for Windows). Download karke install karo, Photoshop khol kar test karo.
 
 ![UI mockup](previews/ui-mockup.webp)
 
@@ -44,7 +44,7 @@ User ke paas kafi saare presets honge — tool har photo ka analysis karke khud 
 
 **Kyun har preset ko render karke score nahi diya:** 50 photos × 10 presets = 500 Photoshop renders — ghanton ka kaam hota. Is liye fast analysis-based scoring hai (~1 second), aur **Test one photo** se kisi bhi preset ko asal Photoshop render par visually confirm kar sakte ho.
 
-## Photoshop — har version (v1.2.4)
+## Photoshop — har version (v1.2.5)
 
 Tool kisi aik Photoshop version se bandha hua **nahi** hai. Photoshop se judne ke liye `Photoshop.Application` (COM) istemal hota hai — ye version-independent hai, is liye jo Photoshop installed ho, tool usi se jud jata hai. App khulte hi upar right corner me version dikhta hai, maslan `✓ Photoshop connected — 2023 (24.7)`.
 
@@ -85,12 +85,12 @@ Supported range:
 
 1. Is project ko GitHub se download karo (ya ZIP extract karo).
 2. `build-windows.bat` par **double-click** karo — Node.js check, `npm install`, phir installer banayega.
-3. `app\dist\ZubiiBatchPresetTool-Setup-1.2.4.exe` par double-click karke install karo.
+3. `app\dist\ZubiiBatchPresetTool-Setup-1.2.5.exe` par double-click karke install karo.
 4. Pehli dafa kholo: upar `✓ Photoshop connected — 2023 (24.7)` jaisa dikhna chahiye (tumhare version ke mutabiq). Agar `✕ Photoshop nahi mila` dikhe to Photoshop install karo aur "Dobara check karo" dabao.
 
 Developer run: `cd app && npm install && npm start`.
 
-## EXE GitHub Actions se banana (v1.2.4)
+## EXE GitHub Actions se banana (v1.2.5)
 
 **Imaandaari se pehle ye samajh lo: sirf source GitHub par dalne se exe khud nahi banta.** Exe banane ke liye ya to GitHub Actions wala workflow chalao, ya apne Windows PC par `build-windows.bat` chalao. Linux VM par Windows exe nahi ban sakta.
 
@@ -100,15 +100,15 @@ Workflow file maujood hai: `.github/workflows/build-windows.yml` — `windows-la
 
 1. GitHub par repo banao: `shoaibulhassan544-ops/zubii-batch-preset-tool` (naam `app/src/main/config.js` aur `app/electron-builder.yml` ke `publish` section me bhi yahi hai).
 2. Source push karo.
-3. Tag lagao: `git tag v1.2.4` phir `git push origin v1.2.4` — is se workflow chalega aur Release ban jayegi. (Tag ke baghair bhi Actions tab → "Build Windows EXE" → Run workflow se chala sakte ho, phir exe Artifacts se download karni hogi.)
-4. Actions tab me build dekho — green ho to Release kholo aur `ZubiiBatchPresetTool-Setup-1.2.4.exe` download karo.
+3. Tag lagao: `git tag v1.2.5` phir `git push origin v1.2.5` — is se workflow chalega aur Release ban jayegi. (Tag ke baghair bhi Actions tab → "Build Windows EXE" → Run workflow se chala sakte ho, phir exe Artifacts se download karni hogi.)
+4. Actions tab me build dekho — green ho to Release kholo aur `ZubiiBatchPresetTool-Setup-1.2.5.exe` download karo.
 
 **Agar Actions disabled hui to:** user ke GitHub account par pehle SA tool ke waqt Actions disabled mili thi ("Actions has been disabled for this user"). Agar is repo par bhi Actions disabled hui to workflow chalega hi nahi aur GitHub se exe nahi banegi — us surat me apne Windows PC par `build-windows.bat` chalana hi rasta hai.
 
 ## Updates — GitHub se (licence ke baghair)
 
 - App khulte hi GitHub Releases check karta hai; nayi version mile to download poochta hai.
-- **Setup (aik dafa, developer ke liye):** upar wale Actions steps se `v1.2.4` tag par Release ban jayegi — us me exe + `latest.yml` attach honge. Bas — users ke app me **Check for updates** ab us release ko dhoondhega. Koi licence server, koi key, kuch nahi.
+- **Setup (aik dafa, developer ke liye):** upar wale Actions steps se `v1.2.5` tag par Release ban jayegi — us me exe + `latest.yml` attach honge. Bas — users ke app me **Check for updates** ab us release ko dhoondhega. Koi licence server, koi key, kuch nahi.
 - Manual: app me **Check for updates** button, ya GitHub Releases page kholo.
 
 ## Photoshop me preset kaise lagta hai (technical, imaandaari se)
@@ -164,6 +164,7 @@ zubii-batch-preset-tool/
         └── renderer/            # UI (index.html, css/styles.css, js/app.js)
 ```
 
+**v1.2.5** — "JSON is undefined" fix (asal wajah: Photoshop CC 2019 ke ExtendScript engine (ES3) me native JSON object maujood hi nahi — apply-preset.jsx JSON.parse/stringify istemal karta tha, is liye batch Photoshop dialog par rukta tha): apply-preset.jsx ke upar ES3-safe JSON polyfill (sirf tab jab native JSON na ho), file pure ASCII; PERMANENT gate — self-test me no-JSON sandbox me polyfill round-trip test + lint (JSON istemal polyfill ke baad hi, ASCII-only).
 **v1.2.4** — run-batch.ps1 parse error fix (v1.2.3 ki script Windows par parse hi nahi hui: "Missing closing '}'" line 162 — tooti script exe me ship ho gayi thi): script dobara saada ki + UTF-8 BOM/CRLF, aur PERMANENT gate — workflow me asal PowerShell 5.1 parser (Parser::ParseFile) se parse check, error ho to build FAIL (exe banti hi nahi); self-test me structural balance + BOM check.
 **v1.2.3** — Batch 0% fix (asal wajah: Photoshop ka COM adhoora hai — DoJavaScriptFile method nahi mili, is liye COM dobara try karna bekar hai): fallback chain — DoJavaScript ek dafa, phir JSX seedha Photoshop.exe command line se (primary fallback); fatal error progress.json + UI me Roman Urdu me (WriteErrorException tail nahi); update flow ab MetaBox jaisa bottom-right popup (Roman Urdu, download progress usi me).
 **v1.2.2** — Photoshop auto-detect mazboot: Adobe folders scan (Program Files + x86, har "Adobe Photoshop*" folder), registry HKLM + HKCU + WOW6432Node + App Paths, exact version exe FileVersion se, UI me version + path dono, na milne par diagnostic detail. Header dobara: gold hata diya, signature-style bold script "Z" (terracotta) + bold serif title (gehra brown).

@@ -157,7 +157,7 @@ console.log('PASS: checkPresetCompatibility (new preset + old PS = warning, old 
 // 13. Koi hard 20.0.7 lock baqi nahi — "20.0.7" string source files me
 //     nahi honi chahiye (self-test.js khud test data ki wajah se excluded).
 const { execSync: execSyncLock } = require('child_process');
-const lockHits = execSyncLock('grep -rIn --exclude-dir=node_modules --exclude-dir=dist --exclude=package-lock.json --exclude=self-test.js -F "20.0.7" . || true',
+const lockHits = execSyncLock('grep -rIn --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=previews --exclude=package-lock.json --exclude=self-test.js -F "20.0.7" . || true',
   { cwd: path.join(__dirname, '..'), encoding: 'utf8' }).trim();
 assert.strictEqual(lockHits, '', 'Hard 20.0.7 lock baqi hai:\n' + lockHits);
 console.log('PASS: no hard 20.0.7 lock left in source');
@@ -174,19 +174,19 @@ console.log('PASS: .github/workflows/build-windows.yml (windows-latest, Node 20,
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'app', 'package.json'), 'utf8'));
 assert.strictEqual(pkg.productName, 'Zubii Batch Preset Tool');
 assert.strictEqual(pkg.name, 'zubii-batch-preset-tool');
-assert.strictEqual(pkg.version, '1.2.1');
+assert.strictEqual(pkg.version, '1.2.2');
 const cfg = require(path.join(__dirname, '..', 'app', 'src', 'main', 'config.js'));
 assert.strictEqual(cfg.appName, 'Zubii Batch Preset Tool');
 assert.strictEqual(cfg.githubRepo, 'zubii-batch-preset-tool');
 assert.strictEqual(cfg.githubOwner, 'shoaibulhassan544-ops');
-assert.strictEqual(cfg.version, '1.2.1');
+assert.strictEqual(cfg.version, '1.2.2');
 const builder = fs.readFileSync(path.join(__dirname, '..', 'app', 'electron-builder.yml'), 'utf8');
 assert.ok(builder.includes('productName: Zubii Batch Preset Tool'));
 assert.ok(builder.includes('repo: zubii-batch-preset-tool'));
 assert.ok(builder.includes('owner: shoaibulhassan544-ops'), 'updater owner doosre account par hona chahiye');
 const html = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'index.html'), 'utf8');
 assert.ok(html.includes('<h1>Zubii Batch Preset Tool</h1>'));
-console.log('PASS: Zubii naam + v1.2.1 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
+console.log('PASS: Zubii naam + v1.2.2 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
 
 // 16. Exe path se Photoshop version — COM fallback ke liye.
 assert.deepStrictEqual(ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Photoshop 2023\\Photoshop.exe'), { major: 24, version: '24.0' });
@@ -233,15 +233,29 @@ const ps1run = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'run-batch.
 assert.ok(ps1run.includes('Set-Content'), 'run-batch.ps1 ARGS_PATH ko (temp copy me) rewrite karta hai');
 console.log('PASS: JSX temp-copy fix (copyFileSync + buildRunJsxPath, Set-Content sirf temp copy par)');
 
-// 21. VIP title + bara "Z" logo — camera emoji nahi.
+// 21. Signature bold header — gold NAHI (user ko sunehra rang ajeeb
+//     laga). Bara "Z" script font me, title bold serif gehre brown me.
 const css = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'css', 'styles.css'), 'utf8');
 assert.ok(html.includes('<span class="logo">Z</span>'), 'logo Z hona chahiye');
 assert.ok(!html.includes('📷'), 'camera emoji nahi hona chahiye');
-assert.ok(css.includes('Cormorant Garamond'), 'title serif font hona chahiye');
-assert.ok(css.includes('#C9A227'), 'title/logo sunehra gold hona chahiye');
-assert.ok(css.includes('.brand h1'), 'title ke liye .brand h1 rule hona chahiye');
+assert.ok(html.includes('id="ps-path"'), 'Photoshop path ke liye ps-path span hona chahiye');
+assert.ok(css.includes("'Segoe Script'"), 'Z logo signature-style script font me hona chahiye');
+assert.ok(css.includes("'Brush Script MT'"), 'Z logo ke liye script font fallback hona chahiye');
 assert.ok(/\.logo\s*\{[^}]*font-size:\s*42px/.test(css), 'Z logo bara hona chahiye (42px)');
-console.log('PASS: VIP gold serif title + bara Z logo (camera emoji nahi)');
+assert.ok(/\.logo\s*\{[^}]*color:\s*#B4562F/.test(css), 'Z logo terracotta hona chahiye');
+assert.ok(/\.brand h1\s*\{[^}]*color:\s*#43302A/.test(css), 'title gehra brown hona chahiye');
+assert.ok(/\.brand h1\s*\{[^}]*font-weight:\s*700/.test(css), 'title bold hona chahiye');
+assert.ok(!css.includes('#C9A227') && !css.includes('#D4AF37') && !css.includes('#B8860B') && !css.includes('#8C6D1F'),
+  'header me sunehra gold bilkul nahi hona chahiye');
+assert.ok(!/\.brand h1\s*\{[^}]*linear-gradient/.test(css), 'title par gold gradient nahi hona chahiye');
+assert.ok(css.includes('.ps-path'), 'ps-path ka CSS hona chahiye');
+console.log('PASS: signature bold header (script Z terracotta + bold brown title, gold nahi) + ps-path span');
+
+// 21b. App version UI me — renderer getInfo se version dikhata hai.
+const appJs21 = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'js', 'app.js'), 'utf8');
+assert.ok(appJs21.includes("$('app-version').textContent = 'v' + info.version"), 'header me app version (v1.2.2) dikhna chahiye');
+assert.ok(appJs21.includes("ps-path"), 'Photoshop path span ko app.js bharna chahiye');
+console.log('PASS: app version header me dikhta hai (v + info.version) + ps-path wiring');
 
 // 22. "Dobara check karo" button — badge ke saath, wiring samet.
 assert.ok(html.includes('id="btn-ps-recheck"'), 're-check button index.html me hona chahiye');
@@ -289,7 +303,7 @@ console.log('PASS: workflow (Release exe + latest.yml, "exe file for Windows", -
 
 // 27. Naam "Meta Box" kahin nahi — poore project me zero hits.
 const { execSync: execSyncMeta } = require('child_process');
-const metaHits = execSyncMeta('grep -rIn --exclude-dir=node_modules --exclude-dir=dist --exclude=package-lock.json --exclude=self-test.js -F "Meta Box" . || true',
+const metaHits = execSyncMeta('grep -rIn --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=previews --exclude=package-lock.json --exclude=self-test.js -F "Meta Box" . || true',
   { cwd: path.join(__dirname, '..'), encoding: 'utf8' }).trim();
 assert.strictEqual(metaHits, '', '"Meta Box" kahin nahi hona chahiye:\n' + metaHits);
 console.log('PASS: no "Meta Box" anywhere in project');
@@ -304,4 +318,122 @@ const bad = hits.split('\n').filter(Boolean);
 assert.strictEqual(bad.length, 0, 'Licence-system code found:\n' + bad.join('\n'));
 console.log('PASS: no licence system in project (no key validation, no licence server)');
 
-console.log('\nAll self-tests passed.');
+// 28. User ka exact path — "C:\Program Files\Adobe\Adobe Photoshop
+//     CC 2019\Photoshop.exe" -> major 20 (COM fail ho to bhi mile).
+assert.deepStrictEqual(
+  ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Photoshop CC 2019\\Photoshop.exe'),
+  { major: 20, version: '20.0' });
+assert.deepStrictEqual(
+  ps.photoshopExePathToVersion('C:\\Program Files (x86)\\Adobe\\Adobe Photoshop CC 2019\\Photoshop.exe'),
+  { major: 20, version: '20.0' });
+assert.strictEqual(ps.parsePhotoshopVersion('20.0.7').major, 20);
+assert.strictEqual(ps.parsePhotoshopVersion('20.0.7').label, '2019 (20.0.7)');
+console.log('PASS: user ka exact CC 2019 path -> major 20 (Program Files + x86)');
+
+// 29. Adobe folder scan — sirf "Adobe Photoshop*" folders milen.
+const scanned = ps.scanAdobeDirEntries('C:\\Program Files\\Adobe', [
+  'Adobe Photoshop CC 2019', 'Adobe Photoshop 2024', 'Adobe Photoshop 2025',
+  'Adobe Bridge', 'Acrobat', 'CameraRaw', 'Adobe Photoshop Elements 2024',
+]);
+assert.strictEqual(scanned.length, 4, 'sirf Photoshop wale 4 folders milne chahiye, mile: ' + scanned.length);
+assert.strictEqual(scanned[0].exe, path.join('C:\\Program Files\\Adobe', 'Adobe Photoshop CC 2019', 'Photoshop.exe'));
+assert.ok(scanned.every((s) => s.exe.endsWith('Photoshop.exe')));
+assert.deepStrictEqual(ps.scanAdobeDirEntries('C:\\Program Files\\Adobe', ['Adobe Bridge', 'Acrobat']), []);
+console.log('PASS: scanAdobeDirEntries (Photoshop folders hi, Bridge/Acrobat nahi)');
+
+// 30. App Paths output parse — reg query ki default value line.
+const appPathsSample = 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Photoshop.exe\r\n' +
+  '    (Default)    REG_SZ    C:\\Program Files\\Adobe\\Adobe Photoshop CC 2019\\Photoshop.exe\r\n' +
+  '    Path    REG_SZ    C:\\Program Files\\Adobe\\Adobe Photoshop CC 2019\\\r\n';
+assert.strictEqual(ps.parseAppPathsOutput(appPathsSample),
+  'C:\\Program Files\\Adobe\\Adobe Photoshop CC 2019\\Photoshop.exe');
+assert.strictEqual(ps.parseAppPathsOutput(''), null);
+assert.strictEqual(ps.parseAppPathsOutput('koi path nahi'), null);
+console.log('PASS: parseAppPathsOutput (App Paths default value -> exe)');
+
+// 31. Exe FileVersion parse — exact version (COM jaisi).
+const fv1 = ps.parseExeFileVersion('20.0.7');
+assert.strictEqual(fv1.ok, true);
+assert.strictEqual(fv1.major, 20);
+assert.strictEqual(fv1.version, '20.0.7');
+assert.strictEqual(fv1.label, '2019 (20.0.7)');
+const fv2 = ps.parseExeFileVersion('24.7.1.0');
+assert.strictEqual(fv2.version, '24.7.1');
+assert.strictEqual(fv2.major, 24);
+assert.strictEqual(ps.parseExeFileVersion('').ok, false);
+assert.strictEqual(ps.parseExeFileVersion('no version here').ok, false);
+console.log('PASS: parseExeFileVersion (20.0.7 -> 2019, 24.7.1.0 -> 24.7.1)');
+
+// 32. Detection sources — dono Adobe dirs + 4 registry keys + App Paths.
+assert.deepStrictEqual(ps.ADOBE_INSTALL_DIRS, ['C:\\Program Files\\Adobe', 'C:\\Program Files (x86)\\Adobe']);
+assert.ok(ps.PHOTOSHOP_REGISTRY_KEYS.includes('HKLM\\SOFTWARE\\Adobe\\Photoshop'));
+assert.ok(ps.PHOTOSHOP_REGISTRY_KEYS.includes('HKCU\\SOFTWARE\\Adobe\\Photoshop'));
+assert.ok(ps.PHOTOSHOP_REGISTRY_KEYS.includes('HKLM\\SOFTWARE\\WOW6432Node\\Adobe\\Photoshop'));
+assert.ok(ps.PHOTOSHOP_REGISTRY_KEYS.includes('HKCU\\SOFTWARE\\WOW6432Node\\Adobe\\Photoshop'));
+assert.strictEqual(ps.PHOTOSHOP_APP_PATHS_KEY,
+  'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Photoshop.exe');
+const psMain2 = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'main', 'photoshop.js'), 'utf8');
+assert.ok(psMain2.includes('scanAdobeDirEntries'), 'findPhotoshopOnDisk ko Adobe folder scan istemal karna chahiye');
+assert.ok(psMain2.includes('parseExeFileVersion'), 'exact version exe FileVersion se aani chahiye');
+assert.ok(psMain2.includes('diagnostics'), 'na milne par diagnostic detail honi chahiye');
+console.log('PASS: detection sources (2 Adobe dirs + 4 registry keys + App Paths + FileVersion + diagnostics)');
+
+// 33. Manual Photoshop.exe rasta — validate + set/get.
+const os = require('os');
+const tmpPsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zubii-ps-test-'));
+const fakePsDir = path.join(tmpPsDir, 'Adobe Photoshop CC 2019');
+fs.mkdirSync(fakePsDir, { recursive: true });
+const fakeExe = path.join(fakePsDir, 'Photoshop.exe');
+fs.writeFileSync(fakeExe, 'fake exe');
+assert.strictEqual(ps.validateManualExe(fakeExe).valid, true);
+assert.strictEqual(ps.validateManualExe(fakeExe).exe, fakeExe);
+assert.strictEqual(ps.validateManualExe(path.join(tmpPsDir, 'notepad.exe')).valid, false);
+assert.strictEqual(ps.validateManualExe('').valid, false);
+assert.strictEqual(ps.validateManualExe(null).valid, false);
+ps.setManualPhotoshopPath(fakeExe);
+assert.strictEqual(ps.getManualPhotoshopPath(), fakeExe);
+ps.setManualPhotoshopPath('');
+assert.strictEqual(ps.getManualPhotoshopPath(), null);
+ps.setManualPhotoshopPath(null);
+assert.strictEqual(ps.getManualPhotoshopPath(), null);
+console.log('PASS: validateManualExe + set/getManualPhotoshopPath (fake CC 2019 exe)');
+
+// 34. Watchdog + manual picker wiring (main/preload/renderer/index.html).
+assert.strictEqual(ps.CHECK_TIMEOUT_MS, 90000, 'check watchdog 90 second hona chahiye');
+assert.ok(psMain2.includes('check-timeout'), 'timeout par check-timeout result hona chahiye');
+assert.ok(psMain2.includes('checkManualPhotoshop'), 'manual path ke liye checkManualPhotoshop hona chahiye');
+assert.ok(mainJs.includes("ipcMain.handle('photoshop:choose-exe'"), 'main.js me choose-exe handler hona chahiye');
+assert.ok(mainJs.includes('setManualPhotoshopPath'), 'main.js ko manual path photoshop.js ko dena chahiye');
+assert.ok(mainJs.includes('photoshopExePath'), 'manual path settings me save hona chahiye');
+const preloadJs = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'preload', 'preload.js'), 'utf8');
+assert.ok(preloadJs.includes('choosePhotoshopExe'), 'preload me choosePhotoshopExe bridge hona chahiye');
+assert.ok(html.includes('id="btn-ps-pick"'), '"Photoshop.exe chuno" button index.html me hona chahiye');
+assert.ok(html.includes('Photoshop.exe chuno'), 'pick button par yehi likha hona chahiye');
+assert.ok(html.includes('id="btn-ps-copy"'), '"Detail copy karo" button index.html me hona chahiye');
+assert.ok(html.includes('class="ps-bar"'), 'Photoshop status ke liye header ke neeche ps-bar honi chahiye');
+assert.ok(html.indexOf('ps-bar') < html.indexOf('ps-status'), 'ps-status badge ps-bar ke andar hona chahiye (topbar me nahi)');
+assert.ok(css.includes('.ps-bar'), 'ps-bar ka CSS hona chahiye');
+assert.ok(appJs21.includes('pickPhotoshopExe'), 'renderer me pickPhotoshopExe function honi chahiye');
+assert.ok(appJs21.includes('copyPsDiagnostics'), 'renderer me copyPsDiagnostics function honi chahiye');
+assert.ok(appJs21.includes('lastPsDiagnostics'), 'diagnostic detail renderer me save honi chahiye');
+assert.ok(appJs21.includes("btn-ps-pick').onclick"), 'pick button wired hona chahiye');
+assert.ok(appJs21.includes("btn-ps-copy').onclick"), 'copy button wired hona chahiye');
+console.log('PASS: watchdog (90s) + manual picker + copy button wiring (main/preload/renderer/index.html)');
+
+// 35. Async: findPhotoshopOnDisk hamesha resolve hota hai (hang nahi) aur
+//     checkManualPhotoshop fake exe par folder version deta hai.
+ps.findPhotoshopOnDisk('test COM fail').then((nf) => {
+  assert.strictEqual(nf.ok, false, 'Linux par Photoshop nahi milna chahiye');
+  assert.ok(nf.diagnostics && nf.diagnostics.includes('Adobe folders'), 'diagnostics me Adobe folders scan hona chahiye');
+  assert.ok(nf.detail && nf.detail.includes('test COM fail'), 'detail me COM error hona chahiye');
+  console.log('PASS: findPhotoshopOnDisk hamesha resolve hota hai (not-found + diagnostics, hang nahi)');
+  return ps.checkManualPhotoshop(fakeExe);
+}).then((m) => {
+  assert.strictEqual(m.ok, true, 'manual fake exe ok hona chahiye');
+  assert.strictEqual(m.method, 'manual');
+  assert.strictEqual(m.major, 20, 'fake CC 2019 exe -> major 20');
+  assert.strictEqual(m.exe, fakeExe);
+  console.log('PASS: checkManualPhotoshop (fake CC 2019 exe -> major 20, method manual)');
+  fs.rmSync(tmpPsDir, { recursive: true, force: true });
+  console.log('\nAll self-tests passed.');
+}).catch((err) => { console.error('ASYNC TEST FAILED:', err); process.exit(1); });

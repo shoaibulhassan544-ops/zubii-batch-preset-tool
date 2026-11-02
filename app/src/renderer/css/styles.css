@@ -14,26 +14,33 @@ h2 { font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: v
 
 .topbar { display: flex; justify-content: space-between; align-items: center;
   padding: 14px 22px; background: var(--card); border-bottom: 1px dashed var(--sand); }
-.brand { display: flex; align-items: center; gap: 12px; }
-/* Title — classical VIP stylish: serif font + sunehra gold. */
-.brand h1 { font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-  font-size: 26px; font-weight: 700; letter-spacing: .05em; margin: 0; color: #B8860B;
-  background: linear-gradient(135deg, #C9A227 0%, #8C6D1F 55%, #D4AF37 100%);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-/* Logo — bara "Z", title se match karta hua (serif, gold, halka daira). */
+.brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+/* Title — signature bold: bold serif, gehra brown. Gold NAHI (user ko
+   sunehra rang ajeeb laga, is liye header me gold bilkul nahi). */
+.brand h1 { font-family: Georgia, 'Playfair Display', 'Cormorant Garamond', 'Times New Roman', serif;
+  font-size: 26px; font-weight: 700; letter-spacing: .03em; margin: 0; color: #43302A; white-space: nowrap; }
+/* Logo — bara "Z", signature-style script font, terracotta. */
 .logo { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px;
-  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-  font-size: 42px; font-weight: 700; line-height: 1; color: #C9A227;
-  border: 2px solid #C9A227; border-radius: 50%; background: #FBF6EA; }
+  font-family: 'Segoe Script', 'Brush Script MT', 'Monotype Corsiva', 'Lucida Handwriting', cursive;
+  font-size: 42px; font-weight: 700; line-height: 1; color: #B4562F;
+  border: 2px solid #B4562F; border-radius: 50%; background: #FBF6EA; }
 .free-badge { background: var(--sage); color: #fff; font-size: 11px; font-weight: 700;
   padding: 3px 10px; border-radius: 20px; letter-spacing: .05em; }
 .top-actions { display: flex; align-items: center; gap: 12px; }
+/* Photoshop status bar — header ke neeche patli patti: badge + path +
+   Dobara check karo / Photoshop.exe chuno / Detail copy karo. */
+.ps-bar { display: flex; align-items: center; gap: 12px; padding: 8px 22px;
+  background: var(--card); border-bottom: 1px dashed var(--sand); }
 .ps-status { font-size: 12px; padding: 5px 10px; border-radius: 20px; background: #eee; }
 .ps-status.checking { background: #eee; color: var(--muted); }
 .ps-status.ok { background: #e4efe0; color: #3d6b34; }
 .ps-status.bad { background: #fbe3de; color: #8f2d1e; }
+/* Milne wale Photoshop ka path — chhota, ellipsis ke saath; poora path
+   hover (title) me aur log me. */
+.ps-path { font-size: 11px; color: var(--muted); max-width: 420px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* "Dobara check karo" — fail ho to wazeh (terracotta), warna chhota ghost. */
-.btn.ps-recheck { padding: 5px 12px; font-size: 12px; }
+.btn.ps-recheck { padding: 5px 12px; font-size: 12px; white-space: nowrap; }
 .btn.ps-recheck.attention { background: var(--terra); color: #fff; }
 .btn.ps-recheck:disabled { opacity: .5; cursor: wait; }
 .version { color: var(--muted); font-size: 12px; }

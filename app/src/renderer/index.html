@@ -10,12 +10,21 @@
 <header class="topbar">
   <div class="brand"><span class="logo">Z</span><h1>Zubii Batch Preset Tool</h1><span class="free-badge">FREE · No Licence</span></div>
   <div class="top-actions">
-    <span id="ps-status" class="ps-status checking">Photoshop check ho raha hai…</span>
-    <button id="btn-ps-recheck" class="btn ghost ps-recheck">Dobara check karo</button>
     <button id="btn-updates" class="btn ghost">Check for updates</button>
     <span id="app-version" class="version"></span>
   </div>
 </header>
+
+<!-- Photoshop status bar — header ke neeche (topbar me jagah nahi banti:
+     badge + path + 3 buttons aik line me nahi aate). Badge ke paas hi
+     "Dobara check karo" + "Photoshop.exe chuno" + "Detail copy karo". -->
+<div class="ps-bar">
+  <span id="ps-status" class="ps-status checking">Photoshop check ho raha hai…</span>
+  <span id="ps-path" class="ps-path" title=""></span>
+  <button id="btn-ps-recheck" class="btn ghost ps-recheck">Dobara check karo</button>
+  <button id="btn-ps-pick" class="btn ghost ps-recheck" title="Agar auto-detect na kare to khud Photoshop.exe ka path do">Photoshop.exe chuno</button>
+  <button id="btn-ps-copy" class="btn ghost ps-recheck hidden" title="Photoshop check ki detail copy karo">Detail copy karo</button>
+</div>
 
 <main class="layout">
   <!-- LEFT: presets -->

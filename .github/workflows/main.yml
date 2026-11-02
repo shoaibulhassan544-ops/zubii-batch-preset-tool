@@ -5,7 +5,7 @@
 #
 # Kaise chalega:
 #   1. Repo banao: shoaibulhassan544-ops/zubii-batch-preset-tool, source push karo.
-#   2. Tag lagao: git tag v1.2.1 && git push origin v1.2.1
+#   2. Tag lagao: git tag v1.2.2 && git push origin v1.2.2
 #      (ya Actions tab -> "Build Windows EXE" -> Run workflow dabao.)
 #   3. Actions tab me build dekho; tag wale run par Release ban jayegi
 #      aur exe + latest.yml us me attach ho jayenge.

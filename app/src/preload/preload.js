@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('zubii', {
   getInfo: () => ipcRenderer.invoke('app:get-info'),
   saveSettings: (s) => ipcRenderer.invoke('app:save-settings', s),
   checkPhotoshop: (force) => ipcRenderer.invoke('app:check-photoshop', force),
+  choosePhotoshopExe: () => ipcRenderer.invoke('photoshop:choose-exe'),
   pickPhotos: () => ipcRenderer.invoke('photos:pick'),
   pickPhotoFolder: () => ipcRenderer.invoke('photos:pick-folder'),
   listPresets: () => ipcRenderer.invoke('presets:list'),

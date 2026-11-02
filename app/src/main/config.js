@@ -10,7 +10,7 @@
 // version lock nahi hai.
 module.exports = {
   appName: 'Zubii Batch Preset Tool',
-  version: '1.2.1',
+  version: '1.2.2',
   githubOwner: 'shoaibulhassan544-ops',
   githubRepo: 'zubii-batch-preset-tool',
   photoshopProgId: 'Photoshop.Application',

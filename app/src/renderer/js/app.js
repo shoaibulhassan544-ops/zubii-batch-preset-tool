@@ -245,28 +245,86 @@ function bindProgress() {
 // Photoshop status — aik dafa check karo, phir result yaad rakho.
 // force=true sirf "Dobara check karo" button se aata hai. Check ke doran
 // Photoshop khulta ya band nahi hota (main process me kabhi Quit nahi).
+// lastPsDiagnostics: na milne par poori detail (COM error + kya check
+// kiya gaya) — "Detail copy karo" button isay clipboard me deta hai.
+let lastPsDiagnostics = '';
 async function refreshPhotoshopStatus(force) {
   const el = $('ps-status');
   const btn = $('btn-ps-recheck');
+  const copyBtn = $('btn-ps-copy');
   el.textContent = 'Photoshop check ho raha hai…';
   el.className = 'ps-status checking';
+  el.title = '';
   btn.disabled = true;
   btn.classList.remove('attention');
-  const ps = await window.zubii.checkPhotoshop(force);
+  copyBtn.classList.add('hidden');
+  let ps;
+  try {
+    ps = await window.zubii.checkPhotoshop(force);
+  } catch (err) {
+    // IPC khud fail ho jaye to badge kabhi "check ho raha hai" par
+    // atka na rahe — failure dikhao, detail ke saath.
+    ps = { ok: false, reason: 'ipc-error', version: null, major: null,
+      detail: 'Photoshop check chala hi nahi (app ka andaruni masla): ' + (err && err.message ? err.message : err),
+      diagnostics: 'IPC error — main process se jawab nahi aaya.' };
+  }
   photoshopInfo = ps;
   btn.disabled = false;
+  const pathEl = $('ps-path');
   if (ps.ok) {
-    // Har version: "Photoshop connected — 2023 (24.7)" jaisa label.
-    el.textContent = '✓ Photoshop connected' + (ps.label ? ' — ' + ps.label : '');
+    // Version + path DONO dikhao: "✓ Photoshop CC 2019 (poori version)"
+    // badge me, poora exe path us ke saath chhote span me (hover = poora path).
+    const verLabel = (ps.year && ps.version) ? ps.year + ' (' + ps.version + ')' : (ps.label || '');
+    el.textContent = '✓ Photoshop' + (verLabel ? ' ' + verLabel : '');
     el.className = 'ps-status ok';
-    log((force ? 'Photoshop dobara check: mil gaya — ' : 'Photoshop mil gaya: ') + ps.detail + (ps.label ? ' (' + ps.label + ')' : ''));
+    el.title = ps.exe ? ps.exe : '';
+    if (ps.exe) { pathEl.textContent = ps.exe; pathEl.title = ps.exe + (ps.source ? ' — ' + ps.source : ''); }
+    else { pathEl.textContent = ''; pathEl.title = ''; }
+    log((force ? 'Photoshop dobara check: mil gaya — ' : 'Photoshop mil gaya: ') + ps.detail + (ps.label ? ' (' + ps.label + ')' : '') + (ps.exe ? ' Path: ' + ps.exe : ''));
   } else {
     el.textContent = '✕ Photoshop nahi mila';
     el.className = 'ps-status bad';
+    lastPsDiagnostics = (ps.detail || ps.reason || 'Photoshop nahi mila') +
+      (ps.diagnostics ? '\nChecked: ' + ps.diagnostics : '');
+    el.title = ps.diagnostics || ps.detail || '';
+    pathEl.textContent = '';
+    pathEl.title = '';
     btn.classList.add('attention');
-    log('Photoshop check: ' + (ps.detail || ps.reason) + ' — Photoshop CC 2019 (20.x) ya us se naya install karo, phir "Dobara check karo" dabao.');
+    copyBtn.classList.remove('hidden');
+    log('Photoshop check: ' + lastPsDiagnostics + ' — Photoshop CC 2019 (20.x) ya us se naya install karo, phir "Dobara check karo" dabao, ya "Photoshop.exe chuno" se khud path do.');
   }
   return ps;
+}
+
+// Manual rasta — user khud Photoshop.exe chune.
+async function pickPhotoshopExe() {
+  const btn = $('btn-ps-pick');
+  btn.disabled = true;
+  try {
+    const r = await window.zubii.choosePhotoshopExe();
+    if (r && r.canceled) { log('Photoshop.exe chunna cancel kar diya.'); return; }
+    if (!r || !r.ok) { log('Photoshop.exe nahi chuna ja saka: ' + (r && r.error ? r.error : 'namaloom masla')); return; }
+    log('Manual Photoshop path save ho gaya: ' + r.exe);
+    await refreshPhotoshopStatus(true);
+  } catch (err) {
+    log('Photoshop.exe chunne me masla: ' + (err && err.message ? err.message : err));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Diagnostic detail clipboard me — user mujhe bhej sake.
+async function copyPsDiagnostics() {
+  const btn = $('btn-ps-copy');
+  const text = lastPsDiagnostics || 'Koi diagnostic detail nahi.';
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copy ho gaya ✓';
+    log('Photoshop check ki detail copy ho gayi — mujhe bhej do.');
+    setTimeout(() => { btn.textContent = 'Detail copy karo'; }, 2000);
+  } catch (err) {
+    log('Copy nahi ho saka — detail neeche log me hai, wahan se copy kar lo.');
+  }
 }
 
 async function init() {
@@ -321,6 +379,8 @@ async function init() {
   $('naming').onchange = (e) => { settings.namingPattern = e.target.value.trim() || '{preset}_{filename}_{seq}'; window.zubii.saveSettings(settings); };
   $('btn-updates').onclick = () => window.zubii.checkUpdates();
   $('btn-ps-recheck').onclick = () => refreshPhotoshopStatus(true);
+  $('btn-ps-pick').onclick = () => pickPhotoshopExe();
+  $('btn-ps-copy').onclick = () => copyPsDiagnostics();
   $('btn-support').onclick = () => window.zubii.openSupport();
 }
 

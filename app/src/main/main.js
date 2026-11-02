@@ -25,6 +25,7 @@ function loadSettings() {
       namingPattern: '{preset}_{filename}_{seq}',
       outputDir: path.join(os.homedir(), 'Pictures', 'Zubii Exports'),
       lastPreset: null,
+      photoshopExePath: null, // user ne khud chuna ho to Photoshop.exe ka path
     };
   }
 }
@@ -32,6 +33,8 @@ function saveSettings(s) {
   try { fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true }); fs.writeFileSync(SETTINGS_FILE, JSON.stringify(s, null, 2)); } catch (_) {}
 }
 let settings = loadSettings();
+// Manual Photoshop path (agar save hai) check ko pehle se bata do.
+ps.setManualPhotoshopPath(settings.photoshopExePath || null);
 
 function createWindow() {
   win = new BrowserWindow({
@@ -57,9 +60,30 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 
 // ---------------------------------------------------------------- IPC ----
 ipcMain.handle('app:get-info', () => ({ version: config.version, settings, free: true }));
-ipcMain.handle('app:save-settings', (_e, s) => { settings = { ...settings, ...s }; saveSettings(settings); return settings; });
+ipcMain.handle('app:save-settings', (_e, s) => { settings = { ...settings, ...s }; saveSettings(settings); ps.setManualPhotoshopPath(settings.photoshopExePath || null); return settings; });
 
 ipcMain.handle('app:check-photoshop', (_e, force) => ps.checkPhotoshop(force));
+
+// MANUAL RASTA: auto-detect na kare to user khud Photoshop.exe chune.
+// Path settings me save hota hai aur agli dafa check sab se pehle wahi
+// istemal karta hai. Ghalat file chune to saaf error milta hai.
+ipcMain.handle('photoshop:choose-exe', async () => {
+  const r = await dialog.showOpenDialog(win, {
+    title: 'Photoshop.exe chuno',
+    defaultPath: 'C:\\Program Files\\Adobe',
+    filters: [{ name: 'Photoshop', extensions: ['exe'] }],
+    properties: ['openFile'],
+  });
+  if (r.canceled) return { ok: false, canceled: true };
+  const picked = r.filePaths[0];
+  const v = ps.validateManualExe(picked);
+  if (!v.valid) return { ok: false, error: v.error };
+  settings = { ...settings, photoshopExePath: v.exe };
+  saveSettings(settings);
+  ps.setManualPhotoshopPath(v.exe);
+  const result = await ps.checkPhotoshop(true);
+  return { ok: true, exe: v.exe, photoshop: result };
+});
 
 ipcMain.handle('photos:pick', async () => {
   const r = await dialog.showOpenDialog(win, {

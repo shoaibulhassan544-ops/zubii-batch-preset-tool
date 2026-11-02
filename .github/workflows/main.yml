@@ -1,6 +1,6 @@
-# Zubii Batch Preset Tool — Windows EXE GitHub Actions se banao.
+# Zubii Batch Preset Tool - Windows EXE GitHub Actions se banao.
 #
-# Sirf source GitHub par dalne se exe KHUD NAHI banta — ye workflow
+# Sirf source GitHub par dalne se exe KHUD NAHI banta - ye workflow
 # Windows runner par installer banata hai aur Release me attach karta hai.
 #
 # Kaise chalega:
@@ -10,26 +10,26 @@
 #   3. Actions tab me build dekho; tag wale run par Release ban jayegi
 #      aur exe + latest.yml us me attach ho jayenge.
 #
-# NOTE — npm cache JAAN BOOJH KAR NAHI lagaya: pehle SA tool me lockfile
+# NOTE - npm cache JAAN BOOJH KAR NAHI lagaya: pehle SA tool me lockfile
 # ki wajah se cache wala step fail hota tha, is liye har run par
 # `npm install` seedha chalta hai (thoda slow, lekin reliable).
 #
-# NOTE — build step me `--publish=never` JAAN BOOJH KAR hai: CI me
+# NOTE - build step me `--publish=never` JAAN BOOJH KAR hai: CI me
 # electron-builder GH_TOKEN ke baghair auto-publish karne ki koshish
 # karta hai aur gir jata hai (exe banne ke baad bhi). Release step
 # (softprops/action-gh-release) apna token khud istemal karta hai.
 #
-# NOTE — PARSE GATE (2026-11-02, v1.2.4): v1.2.3 ki run-batch.ps1
+# NOTE - PARSE GATE (2026-11-02, v1.2.4): v1.2.3 ki run-batch.ps1
 # Windows par parse hi nahi hui ("Missing closing '}'", line 162) aur
-# tooti script exe me ship ho gayi — Linux self-test isay pakar nahi
+# tooti script exe me ship ho gayi - Linux self-test isay pakar nahi
 # saka (VM par PowerShell parser nahi hai). Is liye build se PEHLE ye
 # gate step ASAL Windows PowerShell 5.1 parser (Parser::ParseFile) se
 # scripts/run-batch.ps1 parse karta hai; koi bhi parse error ho to run
 # FAIL ho jata hai aur exe banti hi nahi. Gate ko kabhi mat hatao.
 # (JSX ki node --check bhi Node setup ke baad chalti hai.)
 #
-# NOTE — agar is GitHub account/repo par Actions disabled hui
-# ("Actions has been disabled for this user" — SA tool ke waqt aisa mila
+# NOTE - agar is GitHub account/repo par Actions disabled hui
+# ("Actions has been disabled for this user" - SA tool ke waqt aisa mila
 # tha), to ye workflow chalega hi nahi aur GitHub se exe nahi banegi.
 # Us surat me apne Windows PC par build-windows.bat chalana hi rasta hai.
 # Linux VM par Windows exe nahi ban sakta.
@@ -51,7 +51,7 @@ jobs:
       - name: Source checkout karo
         uses: actions/checkout@v4
 
-      - name: PowerShell script parse check karo (gate — toota script kabhi exe tak na pohnche)
+      - name: PowerShell script parse check karo (gate - toota script kabhi exe tak na pohnche)
         shell: powershell
         run: |
           $tokens = $null
@@ -63,13 +63,13 @@ jobs:
             }
             exit 1
           }
-          Write-Host "PARSE OK: scripts/run-batch.ps1 — no parse errors."
+          Write-Host "PARSE OK: scripts/run-batch.ps1 - no parse errors."
 
       - name: Node.js 20 setup karo
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # No npm cache on purpose (lockfile/cache issue — see header).
+          # No npm cache on purpose (lockfile/cache issue - see header).
 
       - name: JSX syntax check karo (apply-preset.jsx)
         run: |
@@ -78,7 +78,7 @@ jobs:
           $tmp = Join-Path $env:RUNNER_TEMP 'jsx-check.js'
           [System.IO.File]::WriteAllText($tmp, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))
           node --check $tmp
-          Write-Host "JSX OK: scripts/apply-preset.jsx — node --check passed."
+          Write-Host "JSX OK: scripts/apply-preset.jsx - node --check passed."
 
       - name: Dependencies install karo
         working-directory: app
@@ -106,9 +106,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }} — exe file for Windows
+          name: ${{ github.ref_name }} - exe file for Windows
           body: |
-            Zubii Batch Preset Tool ${{ github.ref_name }} — exe file for Windows.
+            Zubii Batch Preset Tool ${{ github.ref_name }} - exe file for Windows.
             Windows 10/11 64-bit, Adobe Photoshop CC 2019 (20.x) se 2025 (26.x) lazmi.
             Download karo, install karo, Photoshop khol kar test karo.
           files: |

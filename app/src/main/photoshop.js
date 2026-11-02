@@ -594,9 +594,47 @@ function installPresetToCameraRaw(presetPath) {
 
 // ---------------------------------------------------------------------------
 // Batch runner. onProgress(state) is called with the parsed progress.json:
-//   { total, done, current, ok, failed, errors: [{file, error}] }
+//   { total, done, current, ok, failed, errors: [{file, error}], fatal }
 // Returns a promise resolving to the final progress state.
+// run-batch.ps1 ke andar fallback chain hai (COM -> Photoshop.exe launch
+// + COM retry -> JSX seedha Photoshop.exe ko argument de kar) — user ke
+// PC par COM kharab hai (is liye v1.2.0/v1.2.1/v1.2.2 me batch 0% par
+// WriteErrorException se marta tha), is liye runner ko detected exe ka
+// path diya jata hai. Fatal error progress.json ke `fatal` field me bhi
+// aati hai taake UI 0% par atka na rahe, asal wajah dikhaye.
 // ---------------------------------------------------------------------------
+
+// Batch ke liye Photoshop.exe ka path — tartib: cached check ka exe,
+// phir manual path, phir null (ps1 khud App Paths/known paths dhoondega).
+// Pure function — self-test me test hoti hai.
+function resolveBatchExePath(cached, manual) {
+  if (cached && cached.exe) return cached.exe;
+  if (typeof manual === 'string' && manual.trim()) return manual.trim();
+  return null;
+}
+
+// Batch fail ki wajah Roman Urdu me — tartib: progress.json ka `fatal`,
+// phir pehli error, phir PowerShell stderr ki aakhri saaf lines, phir
+// exit code. WriteErrorException jaisi tail lines saaf kar di jati hain
+// (asal message wali line un ke upar hoti hai, user ko tail nahi dikhani).
+// Pure function — self-test me test hoti hai.
+function batchFatalMessage({ code, stderr, progress }) {
+  if (progress && progress.fatal) return String(progress.fatal);
+  if (progress && progress.errors && progress.errors.length) {
+    const first = progress.errors.find((e) => e && e.error) || progress.errors[0];
+    if (first && first.error) return String(first.error);
+  }
+  const raw = String(stderr || '');
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l
+    && !/CategoryInfo/i.test(l) && !/FullyQualifiedErrorId/i.test(l)
+    && !/WriteErrorException/i.test(l) && !/^\s*\+/.test(l));
+  if (lines.length) return lines.slice(-2).join(' — ');
+  if (code !== undefined && code !== null) {
+    return 'Photoshop batch fail ho gaya (exit ' + code + ') — Photoshop COM se nahi khula. "Photoshop.exe chuno" se khud path do ya "Detail copy karo" se detail bhejo.';
+  }
+  return 'Photoshop batch fail ho gaya — wajah maloom nahi. "Detail copy karo" se detail bhejo.';
+}
+
 function runBatch(args, onProgress) {
   return new Promise((resolve, reject) => {
     const workDir = args.workDir;
@@ -615,8 +653,13 @@ function runBatch(args, onProgress) {
     try { fs.copyFileSync(jsxPath(), runJsx); }
     catch (err) { reject(new Error('Could not copy apply-preset.jsx to temp folder: ' + err.message)); return; }
 
-    const ps = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass',
-      '-File', ps1Path(), '-Jsx', runJsx, '-Args', argsFile], { windowsHide: true });
+    // Detected Photoshop.exe ka path runner ko do — COM fail ho to wo
+    // exe se Photoshop khole ya script seedha exe se chalaye.
+    const batchExe = resolveBatchExePath(cachedCheck, manualPhotoshopPath);
+    const psArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass',
+      '-File', ps1Path(), '-Jsx', runJsx, '-Args', argsFile];
+    if (batchExe) psArgs.push('-PhotoshopExe', batchExe);
+    const ps = spawn('powershell', psArgs, { windowsHide: true });
 
     let stderr = '';
     ps.stderr.on('data', (d) => { stderr += d.toString(); });
@@ -635,8 +678,8 @@ function runBatch(args, onProgress) {
       let final = { total: args.files.length, done: 0, ok: 0, failed: 0, current: '', errors: [] };
       try { final = JSON.parse(fs.readFileSync(args.progressFile, 'utf8')); } catch (_) {}
       if (onProgress) onProgress(final);
-      if (code === 0 || final.done >= final.total) resolve(final);
-      else reject(new Error('Photoshop batch failed (exit ' + code + '). ' + (stderr.trim() || final.errors.map((e) => e.error).join(' | ') || 'See the log.')));
+      if (code === 0 && final.done >= final.total) resolve(final);
+      else reject(new Error(batchFatalMessage({ code, stderr, progress: final })));
     });
   });
 }
@@ -656,6 +699,7 @@ module.exports = {
   checkManualPhotoshop, getExeFileVersion, findPhotoshopOnDisk,
   CHECK_TIMEOUT_MS,
   buildRunJsxPath, getCachedPhotoshop, PHOTOSHOP_KNOWN_PATHS,
+  resolveBatchExePath, batchFatalMessage,
   detectPresetRequirements, checkPresetCompatibility,
   checkPhotoshop, installPresetToCameraRaw, runBatch, cancelBatch,
   jsxPath, ps1Path, config,

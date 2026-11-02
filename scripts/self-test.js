@@ -174,19 +174,19 @@ console.log('PASS: .github/workflows/build-windows.yml (windows-latest, Node 20,
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'app', 'package.json'), 'utf8'));
 assert.strictEqual(pkg.productName, 'Zubii Batch Preset Tool');
 assert.strictEqual(pkg.name, 'zubii-batch-preset-tool');
-assert.strictEqual(pkg.version, '1.2.2');
+assert.strictEqual(pkg.version, '1.2.3');
 const cfg = require(path.join(__dirname, '..', 'app', 'src', 'main', 'config.js'));
 assert.strictEqual(cfg.appName, 'Zubii Batch Preset Tool');
 assert.strictEqual(cfg.githubRepo, 'zubii-batch-preset-tool');
 assert.strictEqual(cfg.githubOwner, 'shoaibulhassan544-ops');
-assert.strictEqual(cfg.version, '1.2.2');
+assert.strictEqual(cfg.version, '1.2.3');
 const builder = fs.readFileSync(path.join(__dirname, '..', 'app', 'electron-builder.yml'), 'utf8');
 assert.ok(builder.includes('productName: Zubii Batch Preset Tool'));
 assert.ok(builder.includes('repo: zubii-batch-preset-tool'));
 assert.ok(builder.includes('owner: shoaibulhassan544-ops'), 'updater owner doosre account par hona chahiye');
 const html = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'index.html'), 'utf8');
 assert.ok(html.includes('<h1>Zubii Batch Preset Tool</h1>'));
-console.log('PASS: Zubii naam + v1.2.2 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
+console.log('PASS: Zubii naam + v1.2.3 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
 
 // 16. Exe path se Photoshop version — COM fallback ke liye.
 assert.deepStrictEqual(ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Photoshop 2023\\Photoshop.exe'), { major: 24, version: '24.0' });
@@ -419,6 +419,100 @@ assert.ok(appJs21.includes('lastPsDiagnostics'), 'diagnostic detail renderer me 
 assert.ok(appJs21.includes("btn-ps-pick').onclick"), 'pick button wired hona chahiye');
 assert.ok(appJs21.includes("btn-ps-copy').onclick"), 'copy button wired hona chahiye');
 console.log('PASS: watchdog (90s) + manual picker + copy button wiring (main/preload/renderer/index.html)');
+
+// 36. Batch fallback chain — COM adhoora ho (DoJavaScriptFile method
+//     na ho) to seedha Photoshop.exe se script chale. Yehi user ke PC
+//     ka asal masla tha: COM object ban gaya, method nahi mili, batch
+//     0% par WriteErrorException se mar gaya. Write-Error bilkul nahi
+//     hona chahiye (tail lines ki wajah).
+const ps1new = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'run-batch.ps1'), 'utf8');
+for (const needle of ['-PhotoshopExe', 'Try-ComRun', 'DoJavaScriptFile', 'DoJavaScript',
+  "does not contain a method named 'DoJavaScriptFile'", 'MethodMissing',
+  'COM adhoora hai', 'Start-Process', 'Write-FatalProgress', 'Write-ProgressNote',
+  'skipToExe', 'progress.json']) {
+  assert.ok(ps1new.includes(needle), 'run-batch.ps1 missing: ' + needle);
+}
+assert.ok(!ps1new.includes('Write-Error'), 'run-batch.ps1 me Write-Error nahi hona chahiye (WriteErrorException tail)');
+assert.ok(ps1new.includes('Photoshop.exe se script chala raha hun'), 'exe fallback ka log hona chahiye');
+console.log('PASS: run-batch.ps1 fallback chain (method-missing -> DoJavaScript -> exe command line, no Write-Error)');
+
+// 37. Batch exe path — cached check ka exe pehle, phir manual, phir null.
+assert.strictEqual(ps.resolveBatchExePath({ exe: 'C:\\PS\\Photoshop.exe' }, 'C:\\Other\\Photoshop.exe'), 'C:\\PS\\Photoshop.exe');
+assert.strictEqual(ps.resolveBatchExePath({ exe: null }, 'C:\\Other\\Photoshop.exe'), 'C:\\Other\\Photoshop.exe');
+assert.strictEqual(ps.resolveBatchExePath(null, null), null);
+assert.strictEqual(ps.resolveBatchExePath(null, '   '), null);
+assert.strictEqual(ps.resolveBatchExePath({}, ''), null);
+console.log('PASS: resolveBatchExePath (cached > manual > null)');
+
+// 38. Batch fatal message — Roman Urdu, tail lines saaf.
+const fm1 = ps.batchFatalMessage({ code: 4, stderr: '', progress: { fatal: 'Photoshop ka COM adhoora hai — script Photoshop.exe se chalai ja rahi hai.' } });
+assert.ok(fm1.includes('COM adhoora hai'), 'fatal field jeetna chahiye');
+const fm2 = ps.batchFatalMessage({ code: 4, stderr: '', progress: { errors: [{ file: '', error: 'Photoshop script fail: kuch ghalat' }] } });
+assert.ok(fm2.includes('kuch ghalat'), 'pehli error milni chahiye');
+const fm3 = ps.batchFatalMessage({
+  code: 1, stderr: 'run-batch.ps1 : Photoshop script failed: Method invocation failed because [System.__ComObject] does not contain a method named \'DoJavaScriptFile\'.\n    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException\n    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,run-batch.ps1',
+  progress: { errors: [] },
+});
+assert.ok(fm3.includes('DoJavaScriptFile'), 'stderr se asal message milna chahiye, tail nahi');
+assert.ok(!fm3.includes('CategoryInfo') && !fm3.includes('FullyQualifiedErrorId') && !fm3.includes('WriteErrorException'),
+  'tail lines saaf honi chahiye');
+const fm4 = ps.batchFatalMessage({ code: 3, stderr: '', progress: {} });
+assert.ok(fm4.includes('Photoshop'), 'exit code fallback me bhi wajah honi chahiye');
+console.log('PASS: batchFatalMessage (fatal > errors > stderr saaf, tail lines nahi)');
+
+// 39. runBatch runner ko -PhotoshopExe deta hai + adhoora batch reject karta hai.
+assert.ok(psMain2.includes("'-PhotoshopExe'"), 'runBatch ko runner ko -PhotoshopExe dena chahiye');
+assert.ok(psMain2.includes('batchFatalMessage'), 'runBatch ko fatal message builder istemal karna chahiye');
+assert.ok(psMain2.includes('resolveBatchExePath'), 'runBatch ko resolveBatchExePath istemal karna chahiye');
+assert.ok(psMain2.includes('code === 0 && final.done >= final.total'), 'adhoora batch (done < total) resolve nahi hona chahiye');
+console.log('PASS: runBatch (-PhotoshopExe + fatal message + adhoora batch reject)');
+
+// 40. Update toast — updater.js native dialog nahi, events bhejta hai.
+const updJs = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'main', 'updater.js'), 'utf8');
+assert.ok(!updJs.includes('showMessageBoxSync'), 'updater.js me native dialog nahi hona chahiye');
+assert.ok(!updJs.includes("require('electron')") || !updJs.includes('dialog'), 'updater.js me dialog import nahi hona chahiye');
+assert.ok(updJs.includes("win.webContents.send('update:event'"), 'updater ko renderer ko update:event bhejna chahiye');
+for (const t of ["type: 'available'", "type: 'progress'", "type: 'downloaded'", "type: 'none'", "type: 'error'"]) {
+  assert.ok(updJs.includes(t), 'updater event missing: ' + t);
+}
+assert.ok(updJs.includes('downloadUpdate'), 'updater ko downloadUpdate export karna chahiye');
+assert.ok(updJs.includes('restartToInstall'), 'updater ko restartToInstall export karna chahiye');
+assert.ok(mainJs.includes("ipcMain.handle('updates:download'"), 'main.js me updates:download handler hona chahiye');
+assert.ok(mainJs.includes("ipcMain.handle('updates:restart'"), 'main.js me updates:restart handler hona chahiye');
+assert.ok(preloadJs.includes('onUpdate'), 'preload me onUpdate bridge hona chahiye');
+assert.ok(preloadJs.includes('downloadUpdate'), 'preload me downloadUpdate bridge hona chahiye');
+assert.ok(preloadJs.includes('restartToInstall'), 'preload me restartToInstall bridge hona chahiye');
+console.log('PASS: updater toast events (available/progress/downloaded/none/error, no native dialog)');
+
+// 41. Toast UI — bottom-right popup, Roman Urdu, app styling.
+assert.ok(html.includes('id="update-toast"'), 'index.html me update-toast hona chahiye');
+for (const id of ['update-toast-title', 'update-toast-msg', 'update-toast-progress', 'update-toast-bar', 'update-toast-primary', 'update-toast-secondary', 'update-toast-close']) {
+  assert.ok(html.includes('id="' + id + '"'), 'toast element missing: ' + id);
+}
+assert.ok(/\.update-toast\s*\{[^}]*position:\s*fixed/.test(css), 'toast fixed hona chahiye');
+assert.ok(/\.update-toast\s*\{[^}]*right:\s*22px/.test(css), 'toast right side par hona chahiye');
+assert.ok(/\.update-toast\s*\{[^}]*bottom:\s*22px/.test(css), 'toast neeche hona chahiye');
+assert.ok(css.includes('.toast-progress'), 'toast progress bar ka CSS hona chahiye');
+assert.ok(appJs21.includes('bindUpdateToast'), 'renderer me bindUpdateToast function honi chahiye');
+for (const s of ['Nayi version aa gayi hai', 'Download karo', 'Restart karo', 'Baad me', 'Update tayyar hai', 'Download ho raha hai']) {
+  assert.ok(appJs21.includes(s), 'toast Roman Urdu string missing: ' + s);
+}
+assert.ok(appJs21.includes("btn-updates').onclick"), 'Check for updates button toast se jurna chahiye');
+console.log('PASS: update toast UI (bottom-right popup, Roman Urdu, progress bar)');
+
+// 42. Batch fatal/note renderer me dikhe — 0% par atka na rahe.
+assert.ok(appJs21.includes("s.fatal"), 'bindProgress ko s.fatal dekhna chahiye');
+assert.ok(appJs21.includes("'Batch ERROR: ' + s.fatal"), 'fatal log me aana chahiye');
+assert.ok(appJs21.includes("s.note"), 'bindProgress ko s.note dekhna chahiye');
+assert.ok(appJs21.includes("'NOTE: ' + s.note"), 'note (COM adhoora hai) log me aana chahiye');
+assert.ok(appJs21.includes('Batch ruk gaya'), 'fatal par progress text badalna chahiye');
+console.log('PASS: batch fatal/note renderer me dikhte hain (0% stuck nahi)');
+
+// 43. README — v1.2.3 entry + Download section nayi version.
+assert.ok(readme.includes('**v1.2.3**'), 'README me v1.2.3 entry honi chahiye');
+assert.ok(readme.includes('ZubiiBatchPresetTool-Setup-1.2.3.exe'), 'README Download me 1.2.3 exe honi chahiye');
+assert.ok(readme.includes('COM adhoora'), 'README me COM adhoora wali wajah likhi honi chahiye');
+console.log('PASS: README v1.2.3 entry + Download (1.2.3 exe)');
 
 // 35. Async: findPhotoshopOnDisk hamesha resolve hota hai (hang nahi) aur
 //     checkManualPhotoshop fake exe par folder version deta hai.

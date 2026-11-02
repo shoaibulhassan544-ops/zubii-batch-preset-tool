@@ -119,3 +119,16 @@ input[type="range"] { width: 100%; accent-color: var(--terra); }
   margin: 0 22px 18px; font-size: 12px; color: var(--muted); }
 .app-footer .credit { letter-spacing: .02em; }
 .app-footer .btn { padding: 5px 12px; font-size: 12px; }
+
+/* Update popup (toast) — MetaBox jaisa bottom-right popup: neeche right
+   corner me, card jaisa, terracotta accent. Native dialog ki jagah. */
+.update-toast { position: fixed; right: 22px; bottom: 22px; width: 340px; z-index: 100;
+  background: var(--card); border: 1px solid var(--sand); border-left: 4px solid var(--terra);
+  border-radius: 14px; padding: 16px 18px 14px; box-shadow: 0 8px 28px rgba(67, 48, 42, .25); }
+.update-toast .toast-close { position: absolute; top: 8px; right: 10px; border: 0; background: transparent;
+  color: var(--muted); font-size: 13px; cursor: pointer; padding: 2px 6px; }
+.update-toast .toast-title { font-size: 15px; font-weight: 700; color: var(--brown); padding-right: 22px; }
+.update-toast .toast-msg { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
+.update-toast .toast-progress { height: 10px; background: #eee0cb; border-radius: 6px; overflow: hidden; margin-top: 10px; }
+.update-toast .toast-progress > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--sage), var(--terra)); transition: width .3s; }
+.update-toast .toast-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }

@@ -214,3 +214,6 @@ ipcMain.handle('batch:start', async (_e, { presetPath, presetName, files, output
 ipcMain.handle('batch:cancel', () => { ps.cancelBatch(path.join(WORK_DIR, 'batch')); return true; });
 ipcMain.handle('updates:check', () => { updater.checkNow(); return true; });
 ipcMain.handle('updates:open-releases', () => { updater.openReleasesPage(); return true; });
+// Update popup (toast) ke buttons: Download / Restart — renderer se.
+ipcMain.handle('updates:download', () => { updater.downloadUpdate(); return true; });
+ipcMain.handle('updates:restart', () => { updater.restartToInstall(); return true; });

@@ -196,6 +196,7 @@ async function startBatch() {
     assignments.push({ src: photo.path, presetPath: eff.path, presetName: eff.name });
   }
   running = true; batchStart = Date.now();
+  lastBatchNote = ''; // naya batch — purani note dobara dikhaye.
   $('btn-start').disabled = true;
   $('btn-cancel').classList.remove('hidden');
   $('btn-open-output').classList.add('hidden');
@@ -228,11 +229,23 @@ async function startBatch() {
   }
 }
 
+// Batch progress — fatal/note bhi dikhao taake 0% par atka na rahe.
+let lastBatchNote = '';
 function bindProgress() {
   window.zubii.onProgress((s) => {
     const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
     $('progress-bar').style.width = pct + '%';
     $('progress-text').textContent = `Processing: ${s.done} of ${s.total} photos completed · ${pct}%`;
+    // Fallback ki wajah (maslan COM adhoora hai) — aik dafa log me.
+    if (s.note && s.note !== lastBatchNote) {
+      lastBatchNote = s.note;
+      log('NOTE: ' + s.note);
+    }
+    // Fatal error aaye to 0% par atka na rahe — log me asal wajah likho.
+    if (s.fatal) {
+      $('progress-text').textContent = `Batch ruk gaya — ${s.fatal}`;
+      log('Batch ERROR: ' + s.fatal);
+    }
     if (s.done > 0 && s.done < s.total) {
       const elapsed = (Date.now() - batchStart) / 1000;
       const per = elapsed / s.done;
@@ -327,6 +340,90 @@ async function copyPsDiagnostics() {
   }
 }
 
+// Update popup (toast) — MetaBox jaisa bottom-right popup, Roman Urdu
+// me. Native dialog nahi: update available / download progress / tayyar /
+// latest version / error sab isi popup se. Buttons: Download karo,
+// Restart karo, Baad me.
+let toastTimer = null;
+function showUpdateToast({ title, msg, progress, primary, secondary, onPrimary, onSecondary, autoHideMs }) {
+  const toast = $('update-toast');
+  $('update-toast-title').textContent = title || '';
+  $('update-toast-msg').textContent = msg || '';
+  const prog = $('update-toast-progress');
+  if (progress === null || progress === undefined) prog.classList.add('hidden');
+  else { prog.classList.remove('hidden'); $('update-toast-bar').style.width = progress + '%'; }
+  const pBtn = $('update-toast-primary');
+  const sBtn = $('update-toast-secondary');
+  if (primary) { pBtn.textContent = primary; pBtn.classList.remove('hidden'); pBtn.onclick = onPrimary || null; }
+  else pBtn.classList.add('hidden');
+  if (secondary) { sBtn.textContent = secondary; sBtn.classList.remove('hidden'); sBtn.onclick = onSecondary || null; }
+  else sBtn.classList.add('hidden');
+  toast.classList.remove('hidden');
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+  if (autoHideMs) toastTimer = setTimeout(hideUpdateToast, autoHideMs);
+}
+function hideUpdateToast() {
+  $('update-toast').classList.add('hidden');
+  if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+}
+function bindUpdateToast() {
+  $('update-toast-close').onclick = hideUpdateToast;
+  window.zubii.onUpdate((p) => {
+    if (!p) return;
+    if (p.type === 'available') {
+      showUpdateToast({
+        title: 'Nayi version aa gayi hai',
+        msg: `Zubii Batch Preset Tool v${p.version} available hai (tumhare paas v${p.currentVersion}).`,
+        primary: 'Download karo',
+        secondary: 'Baad me',
+        onPrimary: () => {
+          window.zubii.downloadUpdate();
+          showUpdateToast({
+            title: 'Download ho raha hai…',
+            msg: `v${p.version} download ho raha hai — thoda intezar karo.`,
+            progress: 0,
+            secondary: 'Baad me',
+            onSecondary: hideUpdateToast,
+          });
+        },
+        onSecondary: hideUpdateToast,
+      });
+    } else if (p.type === 'progress') {
+      showUpdateToast({
+        title: 'Download ho raha hai…',
+        msg: `Update download ho raha hai — ${p.percent}%`,
+        progress: p.percent,
+        secondary: 'Baad me',
+        onSecondary: hideUpdateToast,
+      });
+    } else if (p.type === 'downloaded') {
+      showUpdateToast({
+        title: 'Update tayyar hai',
+        msg: `v${p.version} download ho gaya — restart karte hi install ho jayega.`,
+        primary: 'Restart karo',
+        secondary: 'Baad me',
+        onPrimary: () => window.zubii.restartToInstall(),
+        onSecondary: hideUpdateToast,
+      });
+    } else if (p.type === 'none') {
+      showUpdateToast({
+        title: 'Tum latest version par ho',
+        msg: `v${p.version} hi nayi version hai — kuch download nahi karna.`,
+        secondary: 'Theek hai',
+        onSecondary: hideUpdateToast,
+        autoHideMs: 5000,
+      });
+    } else if (p.type === 'error') {
+      showUpdateToast({
+        title: 'Update check nahi ho saka',
+        msg: 'GitHub Releases se rabta nahi ho saka — internet check karo, ya Releases page kholo.' + (p.message ? ' (' + p.message + ')' : ''),
+        secondary: 'Theek hai',
+        onSecondary: hideUpdateToast,
+      });
+    }
+  });
+}
+
 async function init() {
   const info = await window.zubii.getInfo();
   settings = info.settings || settings;
@@ -347,6 +444,7 @@ async function init() {
   }
   renderPhotos();
   bindProgress();
+  bindUpdateToast();
 
   $('preset-search').addEventListener('input', renderPresets);
   $('btn-import-preset').onclick = async () => {
@@ -377,7 +475,15 @@ async function init() {
   $('resize-toggle').onchange = (e) => { settings.resize = e.target.checked; window.zubii.saveSettings(settings); };
   $('resize-width').onchange = (e) => { settings.resizeWidth = +e.target.value || 2048; window.zubii.saveSettings(settings); };
   $('naming').onchange = (e) => { settings.namingPattern = e.target.value.trim() || '{preset}_{filename}_{seq}'; window.zubii.saveSettings(settings); };
-  $('btn-updates').onclick = () => window.zubii.checkUpdates();
+  $('btn-updates').onclick = () => {
+    window.zubii.checkUpdates();
+    showUpdateToast({
+      title: 'Update check ho raha hai…',
+      msg: 'GitHub Releases se nayi version check kar raha hun.',
+      secondary: 'Baad me',
+      onSecondary: hideUpdateToast,
+    });
+  };
   $('btn-ps-recheck').onclick = () => refreshPhotoshopStatus(true);
   $('btn-ps-pick').onclick = () => pickPhotoshopExe();
   $('btn-ps-copy').onclick = () => copyPsDiagnostics();

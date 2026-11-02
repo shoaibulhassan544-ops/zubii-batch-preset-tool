@@ -99,6 +99,19 @@
   <button id="btn-support" class="btn ghost">Support</button>
 </footer>
 
+<!-- Update popup (toast) — MetaBox jaisa bottom-right popup: nayi
+     version aaye ya download chale to yehi dikhta hai, native dialog nahi. -->
+<div id="update-toast" class="update-toast hidden" role="status">
+  <button id="update-toast-close" class="toast-close" title="Band karo">✕</button>
+  <div class="toast-title" id="update-toast-title"></div>
+  <div class="toast-msg" id="update-toast-msg"></div>
+  <div class="toast-progress hidden" id="update-toast-progress"><div id="update-toast-bar"></div></div>
+  <div class="toast-actions">
+    <button id="update-toast-primary" class="btn primary hidden"></button>
+    <button id="update-toast-secondary" class="btn ghost hidden"></button>
+  </div>
+</div>
+
 <script src="js/app.js"></script>
 </body>
 </html>

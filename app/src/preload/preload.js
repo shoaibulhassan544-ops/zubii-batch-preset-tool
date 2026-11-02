@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('zubii', {
   cancelBatch: () => ipcRenderer.invoke('batch:cancel'),
   checkUpdates: () => ipcRenderer.invoke('updates:check'),
   openReleases: () => ipcRenderer.invoke('updates:open-releases'),
+  downloadUpdate: () => ipcRenderer.invoke('updates:download'),
+  restartToInstall: () => ipcRenderer.invoke('updates:restart'),
+  onUpdate: (cb) => ipcRenderer.on('update:event', (_e, p) => cb(p)),
   openSupport: () => ipcRenderer.invoke('support:open-whatsapp'),
   onProgress: (cb) => ipcRenderer.on('batch:progress', (_e, s) => cb(s)),
 });

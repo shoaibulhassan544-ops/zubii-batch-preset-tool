@@ -1,0 +1,75 @@
+# Zubii Batch Preset Tool — Windows EXE GitHub Actions se banao.
+#
+# Sirf source GitHub par dalne se exe KHUD NAHI banta — ye workflow
+# Windows runner par installer banata hai aur Release me attach karta hai.
+#
+# Kaise chalega:
+#   1. Repo banao: ShoaibAzeez/zubii-batch-preset-tool, source push karo.
+#   2. Tag lagao: git tag v1.2.0 && git push origin v1.2.0
+#      (ya Actions tab -> "Build Windows EXE" -> Run workflow dabao.)
+#   3. Actions tab me build dekho; tag wale run par Release ban jayegi
+#      aur exe + latest.yml us me attach ho jayenge.
+#
+# NOTE — npm cache JAAN BOOJH KAR NAHI lagaya: pehle SA tool me lockfile
+# ki wajah se cache wala step fail hota tha, is liye har run par
+# `npm install` seedha chalta hai (thoda slow, lekin reliable).
+#
+# NOTE — agar is GitHub account/repo par Actions disabled hui
+# ("Actions has been disabled for this user" — SA tool ke waqt aisa mila
+# tha), to ye workflow chalega hi nahi aur GitHub se exe nahi banegi.
+# Us surat me apne Windows PC par build-windows.bat chalana hi rasta hai.
+# Linux VM par Windows exe nahi ban sakta.
+name: Build Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Source checkout karo
+        uses: actions/checkout@v4
+
+      - name: Node.js 20 setup karo
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # No npm cache on purpose (lockfile/cache issue — see header).
+
+      - name: Dependencies install karo
+        working-directory: app
+        run: npm install --no-audit --no-fund
+
+      - name: Windows installer banao
+        working-directory: app
+        run: npm run dist:win
+
+      - name: Installer ko artifact ke tor par upload karo
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZubiiBatchPresetTool-Setup
+          path: app/dist/*.exe
+          if-no-files-found: error
+
+      - name: latest.yml ko artifact ke tor par upload karo
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-yml
+          path: app/dist/latest.yml
+          if-no-files-found: warn
+
+      - name: GitHub Release banao (sirf tag wale run par)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            app/dist/*.exe
+            app/dist/latest.yml
+          fail_on_unmatched_files: true

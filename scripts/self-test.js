@@ -164,7 +164,7 @@ console.log('PASS: no hard 20.0.7 lock left in source');
 
 // 14. GitHub Actions workflow maujood hai aur sahi hai.
 const wf = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'build-windows.yml'), 'utf8');
-for (const needle of ['runs-on: windows-latest', "node-version: '20'", 'npm install', 'npm run dist:win', 'upload-artifact', 'action-gh-release', 'tags:', "'v*'"]) {
+for (const needle of ['runs-on: windows-latest', "node-version: '20'", 'npm install', 'npm run dist:win', 'upload-artifact', 'action-gh-release', 'tags:', "'v*'", 'ParseFile', 'PARSE ERROR', 'shell: powershell', 'jsx-check', 'node --check']) {
   assert.ok(wf.includes(needle), 'workflow missing: ' + needle);
 }
 assert.ok(!wf.includes('cache:'), 'workflow me npm cache nahi hona chahiye (lockfile issue)');
@@ -174,19 +174,19 @@ console.log('PASS: .github/workflows/build-windows.yml (windows-latest, Node 20,
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'app', 'package.json'), 'utf8'));
 assert.strictEqual(pkg.productName, 'Zubii Batch Preset Tool');
 assert.strictEqual(pkg.name, 'zubii-batch-preset-tool');
-assert.strictEqual(pkg.version, '1.2.3');
+assert.strictEqual(pkg.version, '1.2.4');
 const cfg = require(path.join(__dirname, '..', 'app', 'src', 'main', 'config.js'));
 assert.strictEqual(cfg.appName, 'Zubii Batch Preset Tool');
 assert.strictEqual(cfg.githubRepo, 'zubii-batch-preset-tool');
 assert.strictEqual(cfg.githubOwner, 'shoaibulhassan544-ops');
-assert.strictEqual(cfg.version, '1.2.3');
+assert.strictEqual(cfg.version, '1.2.4');
 const builder = fs.readFileSync(path.join(__dirname, '..', 'app', 'electron-builder.yml'), 'utf8');
 assert.ok(builder.includes('productName: Zubii Batch Preset Tool'));
 assert.ok(builder.includes('repo: zubii-batch-preset-tool'));
 assert.ok(builder.includes('owner: shoaibulhassan544-ops'), 'updater owner doosre account par hona chahiye');
 const html = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'renderer', 'index.html'), 'utf8');
 assert.ok(html.includes('<h1>Zubii Batch Preset Tool</h1>'));
-console.log('PASS: Zubii naam + v1.2.3 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
+console.log('PASS: Zubii naam + v1.2.4 + updater owner shoaibulhassan544-ops (package.json, config.js, electron-builder.yml, header)');
 
 // 16. Exe path se Photoshop version — COM fallback ke liye.
 assert.deepStrictEqual(ps.photoshopExePathToVersion('C:\\Program Files\\Adobe\\Adobe Photoshop 2023\\Photoshop.exe'), { major: 24, version: '24.0' });
@@ -508,11 +508,127 @@ assert.ok(appJs21.includes("'NOTE: ' + s.note"), 'note (COM adhoora hai) log me 
 assert.ok(appJs21.includes('Batch ruk gaya'), 'fatal par progress text badalna chahiye');
 console.log('PASS: batch fatal/note renderer me dikhte hain (0% stuck nahi)');
 
-// 43. README — v1.2.3 entry + Download section nayi version.
-assert.ok(readme.includes('**v1.2.3**'), 'README me v1.2.3 entry honi chahiye');
-assert.ok(readme.includes('ZubiiBatchPresetTool-Setup-1.2.3.exe'), 'README Download me 1.2.3 exe honi chahiye');
+// 43. README — v1.2.4 entry + Download section nayi version.
+assert.ok(readme.includes('**v1.2.4**'), 'README me v1.2.4 entry honi chahiye');
+assert.ok(readme.includes('ZubiiBatchPresetTool-Setup-1.2.4.exe'), 'README Download me 1.2.4 exe honi chahiye');
 assert.ok(readme.includes('COM adhoora'), 'README me COM adhoora wali wajah likhi honi chahiye');
-console.log('PASS: README v1.2.3 entry + Download (1.2.3 exe)');
+console.log('PASS: README v1.2.4 entry + Download (1.2.4 exe)');
+
+// 44. run-batch.ps1 encoding — Windows PowerShell 5.1 ke liye UTF-8
+//     WITH BOM + CRLF. v1.2.3 ki file LF + no-BOM thi.
+const ps1Buf = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'run-batch.ps1'));
+assert.ok(ps1Buf[0] === 0xEF && ps1Buf[1] === 0xBB && ps1Buf[2] === 0xBF,
+  'run-batch.ps1 UTF-8 BOM ke saath honi chahiye (Windows PowerShell 5.1 ke liye)');
+const ps1Text = ps1Buf.toString('utf8');
+assert.ok(ps1Text.includes('\r\n'), 'run-batch.ps1 CRLF line endings me honi chahiye');
+assert.ok(!/(?<!\r)\n/.test(ps1Text), 'run-batch.ps1 me akeli LF nahi honi chahiye (sirf CRLF)');
+console.log('PASS: run-batch.ps1 encoding (UTF-8 BOM + CRLF)');
+
+// 45. Structural balance — strings/comments hata kar braces/parens/
+//     brackets balance honi chahiye (run-batch.ps1 + apply-preset.jsx).
+//     YE PEHLI LAKEER HAI, AKELI KAAFI NAHI: v1.2.3 me balance tha
+//     phir bhi Windows parser ko "Missing closing '}'" error thi —
+//     asal gate CI wala Parser::ParseFile hai (workflow me). Ye check
+//     sirf tooti structure pakarta hai, parser ki ghalti nahi.
+function stripForBalance(src, lang) {
+  let out = '';
+  let i = 0;
+  const n = src.length;
+  let terminated = true;
+  while (i < n) {
+    const c = src[i];
+    const next = i + 1 < n ? src[i + 1] : '';
+    if (lang === 'ps1') {
+      if (c === '<' && next === '#') { // block comment <# ... #>
+        i += 2;
+        while (i < n && !(src[i] === '#' && src[i + 1] === '>')) i++;
+        i += 2;
+        continue;
+      }
+      if (c === '#') { // line comment
+        while (i < n && src[i] !== '\n') i++;
+        continue;
+      }
+    } else { // jsx: JS comments
+      if (c === '/' && next === '/') {
+        while (i < n && src[i] !== '\n') i++;
+        continue;
+      }
+      if (c === '/' && next === '*') {
+        i += 2;
+        while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i++;
+        i += 2;
+        continue;
+      }
+    }
+    if (c === "'") { // single-quoted string; '' = escaped quote
+      i++;
+      let closed = false;
+      while (i < n) {
+        if (src[i] === "'") {
+          if (src[i + 1] === "'") { i += 2; continue; }
+          i++;
+          closed = true;
+          break;
+        }
+        i++;
+      }
+      if (!closed) terminated = false;
+      out += ' ';
+      continue;
+    }
+    if (c === '"') { // double-quoted string; "" = escaped quote
+      i++;
+      let closed = false;
+      while (i < n) {
+        if (src[i] === '"') {
+          if (src[i + 1] === '"') { i += 2; continue; }
+          i++;
+          closed = true;
+          break;
+        }
+        i++;
+      }
+      if (!closed) terminated = false;
+      out += ' ';
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return { text: out, terminated };
+}
+function assertBalanced(text, name) {
+  const pairs = { '{': '}', '(': ')', '[': ']' };
+  const closers = { '}': '{', ')': '(', ']': '[' };
+  const stack = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (pairs[c]) stack.push({ c, i });
+    else if (closers[c]) {
+      assert.ok(stack.length > 0, name + ': band karne wala ' + c + ' baghair khole hue (position ' + i + ')');
+      const open = stack.pop();
+      assert.strictEqual(open.c, closers[c], name + ': ' + open.c + ' (position ' + open.i + ') ko ' + c + ' (position ' + i + ') se band kiya gaya');
+    }
+  }
+  assert.strictEqual(stack.length, 0, name + ': ' + stack.length + ' khula hua bracket band nahi hua: ' + JSON.stringify(stack.slice(0, 3)));
+}
+const ps1Stripped = stripForBalance(ps1Text, 'ps1');
+assert.ok(ps1Stripped.terminated, 'run-batch.ps1 me koi string/comment band nahi hui');
+assertBalanced(ps1Stripped.text, 'run-batch.ps1');
+const jsxNoTarget = jsx.replace(/^\s*#target\s+photoshop\s*$/m, '');
+const jsxStripped = stripForBalance(jsxNoTarget, 'jsx');
+assert.ok(jsxStripped.terminated, 'apply-preset.jsx me koi string/comment band nahi hui');
+assertBalanced(jsxStripped.text, 'apply-preset.jsx');
+console.log('PASS: structural balance (run-batch.ps1 + apply-preset.jsx, strings/comments hata kar)');
+
+// 46. Workflow parse gate — asal PowerShell parser se check lazmi hai.
+for (const needle of ['ParseFile', 'PARSE ERROR', 'shell: powershell', 'jsx-check', 'node --check']) {
+  assert.ok(wf.includes(needle), 'workflow parse gate missing: ' + needle);
+}
+assert.ok(wf.indexOf('PowerShell script parse check karo') < wf.indexOf('Dependencies install karo'),
+  'parse gate build (npm install) se PEHLE chalna chahiye');
+console.log('PASS: workflow parse gate (Parser::ParseFile, build se pehle) + JSX node --check');
 
 // 35. Async: findPhotoshopOnDisk hamesha resolve hota hai (hang nahi) aur
 //     checkManualPhotoshop fake exe par folder version deta hai.

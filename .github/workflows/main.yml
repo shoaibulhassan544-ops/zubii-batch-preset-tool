@@ -19,6 +19,15 @@
 # karta hai aur gir jata hai (exe banne ke baad bhi). Release step
 # (softprops/action-gh-release) apna token khud istemal karta hai.
 #
+# NOTE — PARSE GATE (2026-11-02, v1.2.4): v1.2.3 ki run-batch.ps1
+# Windows par parse hi nahi hui ("Missing closing '}'", line 162) aur
+# tooti script exe me ship ho gayi — Linux self-test isay pakar nahi
+# saka (VM par PowerShell parser nahi hai). Is liye build se PEHLE ye
+# gate step ASAL Windows PowerShell 5.1 parser (Parser::ParseFile) se
+# scripts/run-batch.ps1 parse karta hai; koi bhi parse error ho to run
+# FAIL ho jata hai aur exe banti hi nahi. Gate ko kabhi mat hatao.
+# (JSX ki node --check bhi Node setup ke baad chalti hai.)
+#
 # NOTE — agar is GitHub account/repo par Actions disabled hui
 # ("Actions has been disabled for this user" — SA tool ke waqt aisa mila
 # tha), to ye workflow chalega hi nahi aur GitHub se exe nahi banegi.
@@ -42,11 +51,34 @@ jobs:
       - name: Source checkout karo
         uses: actions/checkout@v4
 
+      - name: PowerShell script parse check karo (gate — toota script kabhi exe tak na pohnche)
+        shell: powershell
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile('scripts/run-batch.ps1', [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors -and $parseErrors.Count -gt 0) {
+            foreach ($e in $parseErrors) {
+              Write-Host "PARSE ERROR: $($e.Message) at line $($e.Extent.StartLineNumber), char $($e.Extent.StartColumnNumber)"
+            }
+            exit 1
+          }
+          Write-Host "PARSE OK: scripts/run-batch.ps1 — no parse errors."
+
       - name: Node.js 20 setup karo
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           # No npm cache on purpose (lockfile/cache issue — see header).
+
+      - name: JSX syntax check karo (apply-preset.jsx)
+        run: |
+          $jsx = Get-Content -Raw 'scripts/apply-preset.jsx'
+          $lines = $jsx -split "`r?`n" | Where-Object { $_ -notmatch '^\s*#target\s+photoshop\s*$' }
+          $tmp = Join-Path $env:RUNNER_TEMP 'jsx-check.js'
+          [System.IO.File]::WriteAllText($tmp, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))
+          node --check $tmp
+          Write-Host "JSX OK: scripts/apply-preset.jsx — node --check passed."
 
       - name: Dependencies install karo
         working-directory: app
